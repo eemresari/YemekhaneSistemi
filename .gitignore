@@ -11,3 +11,6 @@ obj/
 vendor/
 __pycache__/
 target/
+
+# Ödev yönergesi (kökteki PDF'ler); rapor/ altındaki PDF bundan etkilenmez
+/*.pdf
