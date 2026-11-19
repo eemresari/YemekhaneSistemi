@@ -1,4 +1,4 @@
-# Aşama 2 · Uygulama
+ # Aşama 2 · Uygulama
 
 Tarih: 19.11.2026 · Ortam: macOS (Darwin 27.0), Docker 29.8.0, Docker Compose v5.5.1, Node.js 22
 
@@ -161,3 +161,44 @@ uygulama-1  | Uygulama 8000 portunda dinliyor
 Ekran görüntüsü: tarayıcıda `http://localhost:8080/api/saglik` adresi.
 
 ![Apache üzerinden /api/saglik](png/p2_saglik.png)
+
+## 5. Veri katmanı: yazma ve okuma havuzları
+
+`mysql2` sürücüsü kuruldu (`npm install mysql2`, sürüm 3.24.6). `uygulama/veri/baglanti.js`
+iki bağlantı havuzu tanımlar; bağlantı bilgileri koda yazılmaz, compose'un verdiği ortam
+değişkenlerinden okunur:
+
+```js
+const mysql = require('mysql2/promise');
+
+const ortak = {
+  port: Number(process.env.DB_PORT),
+  database: process.env.DB_ADI,
+  user: process.env.DB_KULLANICI,
+  password: process.env.DB_SIFRE,
+  charset: 'utf8mb4',     // Türkçe karakterler (ş, ğ, ı) bozulmasın
+  timezone: '+03:00',     // veritabanı sunucusunun saat dilimiyle aynı
+  waitForConnections: true,
+  connectionLimit: 10,    // havuzda aynı anda en fazla 10 bağlantı
+};
+
+// Yazma işlemleri (INSERT, UPDATE, stored procedure) yalnızca buradan: kaynak sunucu
+const yazmaHavuzu = mysql.createPool({ ...ortak, host: process.env.DB_YAZMA_HOST });
+
+// Okuma işlemleri (SELECT, listeleme, rapor) buradan: replika sunucu
+const okumaHavuzu = mysql.createPool({ ...ortak, host: process.env.DB_OKUMA_HOST });
+
+module.exports = { yazmaHavuzu, okumaHavuzu };
+```
+
+Bundan sonra SQL yalnızca `veri/` klasöründeki dosyalarda yazılır ve bu iki havuzdan birini
+kullanır. Okuma/yazma ayrımının doğru çalıştığı, geçici bir doğrulama ucuyla her iki havuza
+`SELECT @@server_id, @@read_only` sorularak gösterildi (uç doğrulamadan sonra koddan kaldırıldı):
+
+```
+> curl http://localhost:8080/api/db-test
+{"yazma":{"server_id":1,"read_only":0},"okuma":{"server_id":2,"read_only":1}}
+```
+
+- `yazmaHavuzu` kaynağa (`server_id` 1) bağlanır ve yazmaya açıktır (`read_only` 0).
+- `okumaHavuzu` replikaya (`server_id` 2) bağlanır ve salt okunurdur (`read_only` 1).
