@@ -32,6 +32,8 @@ x-uygulama-ortam: &uygulama-ortam
   DB_SIFRE: Uyg_2026
   REDIS_HOST: redis
   REDIS_PORT: "6379"
+  # Oturum çerezini imzalamak için gizli anahtar (ders ortamı; gerçekte koda yazılmaz)
+  OTURUM_SIRRI: yemekhane-oturum-2026-gizli
 
 services:
 
