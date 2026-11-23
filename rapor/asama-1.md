@@ -1,10 +1,9 @@
 # Aşama 1 · Altyapı
 
-Tarih: 18.11.2026 · Ortam: Windows 11, Docker 29.9.3, Docker Compose v5.7.0 (WSL2)
+Tarih: 18.11.2026 · Ortam: macOS (Darwin 27.0), Docker 29.8.0, Docker Compose v5.5.1
 
 Başlangıç paketi `docker compose up -d` ile ek bir ayar yapılmadan ayağa kaldırıldı ve README'deki
-doğrulama komutları sırayla çalıştırıldı. Aşağıdaki çıktılarda parolanın komut satırında
-verilmesinden kaynaklanan `mysql: [Warning] Using a password ...` satırları çıkarılmıştır.
+doğrulama komutları sırayla çalıştırıldı. 
 
 ## 1. Servislerin durumu
 
@@ -18,9 +17,7 @@ redis           Up 29 seconds (healthy)    0.0.0.0:6379->6379/tcp
 replica-setup   Exited (0) 3 seconds ago
 ```
 
-Dört servis `healthy` durumda. `replica-setup` replikayı kurduktan sonra `0` koduyla çıkıyor, bu
-beklenen davranış. Günlüğünün son satırı:
-
+Dört servis `healthy` durumda. `replica-setup` replikayı kurduktan sonra `0` koduyla çıkıyor
 ```
 > docker compose logs replica-setup
 [replica-setup] Replikasyon çalışıyor (IO=Yes, SQL=Yes). Replika salt okunur.
@@ -40,11 +37,7 @@ beklenen davranış. Günlüğünün son satırı:
                 Auto_Position: 1
 ```
 
-- `Replica_IO_Running: Yes`: Replika kaynağa bağlanıp binlog kayıtlarını alıyor.
-- `Replica_SQL_Running: Yes`: Alınan kayıtlar replikaya uygulanıyor.
-- `Seconds_Behind_Source: 0`: Gecikme yok.
-- `Auto_Position: 1`: GTID tabanlı replikasyon. Replika, uyguladığı son işlemi GTID ile bildiği
-  için yeniden başladığında kaldığı yerden devam edebilir (bkz. bölüm 5).
+
 
 Replikanın salt okunur ayarları: `@@read_only = 1`, `@@super_read_only = 1`.
 
@@ -73,8 +66,7 @@ Yükleme kaynakta (`mysql-primary`) yapıldı. Yeni bakiye (355,00 + 100 = 455,0
 ERROR 1290 (HY000) at line 1: The MySQL server is running with the --super-read-only option so it cannot execute this statement
 ```
 
-Replika yazma işlemini reddediyor. Bu yüzden uygulamada yazma işlemleri (yordam çağrıları dahil)
-mutlaka kaynak bağlantısı üzerinden yapılmalı.
+Replika yazma işlemini reddediyor
 
 ## 5. Replika kapalıyken yapılan değişikliğin yakalanması
 
@@ -108,4 +100,4 @@ PONG
 
 ## Sonuç
 
-Tüm kontroller README'de beklenen sonuçları verdi. Altyapı Aşama 2 (uygulama servisi) için hazır.
+Tüm kontroller README'de beklenen sonuçları verdi. 2. aşamaya geçiliyor 
