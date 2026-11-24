@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const oturumRotalari = require('./rotalar/oturum');
+const menuRotalari = require('./rotalar/menu');
 
 const app = express();
 const PORT = 8000;
@@ -32,6 +33,7 @@ app.get('/api/saglik', (req, res) => {
 });
 
 app.use('/api', oturumRotalari);
+app.use('/api/menu', menuRotalari);
 
 // Beklenmeyen hatalar: ayrıntı günlüğe yazılır, kullanıcıya genel mesaj gider
 app.use((err, req, res, next) => {

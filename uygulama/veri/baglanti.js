@@ -8,6 +8,7 @@ const ortak = {
   password: process.env.DB_SIFRE,
   charset: 'utf8mb4',     // Türkçe karakterler (ş, ğ, ı) bozulmasın
   timezone: '+03:00',     // veritabanı sunucusunun saat dilimiyle aynı
+  dateStrings: true,      // tarihler '2026-11-24' metni olarak gelir; Date nesnesine çevrilip gün kaymasın
   waitForConnections: true,
   connectionLimit: 10,    // havuzda aynı anda en fazla 10 bağlantı
 };
