@@ -321,3 +321,21 @@
   /* Rezervasyonlarım: fiyat ve durum metin uzunluğuna bakmadan her satırda altta */
   .rez-bilgi { flex-basis: 100%; }
 }
+
+/* ---- Aşama 4: yarım porsiyon ve alerjen uyarısı ---- */
+.yarim-fiyat { margin: -0.5rem 0 0.75rem; font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
+.porsiyon-secimi { width: 100%; margin-bottom: 0.5rem; }
+.yemekler li.yemek-uyarili {
+  background: var(--hata-zemin);
+  border-left: 4px solid var(--hata);
+  padding-left: 0.5rem;
+}
+.alerjen-uyari { margin: 0.25rem 0 0; color: var(--hata); font-weight: 600; font-size: var(--boyut-kucuk); }
+
+/* Profil: alerjen seçimi */
+.alerjen-secim { border: 1px solid var(--cizgi); border-radius: var(--kose); background: var(--yuzey); padding: 1rem; margin: 0 0 1rem; }
+.alerjen-secim legend { font-weight: 600; padding: 0 0.25rem; }
+.alerjen-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.5rem 1rem; }
+.alerjen-liste label { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; margin: 0; }
+/* temel.css'teki genel input kuralı (width: 100%) onay kutusunu yazıdan uzağa itiyordu */
+.alerjen-liste input[type="checkbox"] { width: 1.1rem; height: 1.1rem; padding: 0; margin: 0; flex: none; }

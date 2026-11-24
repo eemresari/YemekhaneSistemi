@@ -32,6 +32,23 @@ function rezervasyonluKart(menu) {
   mesaj.setAttribute('role', 'status');
   mesaj.hidden = true;
   dugme.setAttribute('aria-describedby', mesaj.id);   // ekran okuyucu mesajı da okusun
+
+  // Aşama 4: öğle ve akşamda porsiyon seçimi (kahvaltıda sunucu yarim_porsiyon: false gönderir)
+  let porsiyonSecimi = null;
+  if (menu.yarim_porsiyon && menu.rezervasyon_acik && !menu.rezervasyonum) {
+    porsiyonSecimi = el('select', 'porsiyon-secimi');
+    porsiyonSecimi.setAttribute('aria-label', 'Porsiyon');
+    const secenek = (deger, metin) => {
+      const o = el('option', null, metin);
+      o.value = deger;
+      return o;
+    };
+    porsiyonSecimi.append(
+      secenek('tam', `Tam porsiyon · ${paraBicimi(menu.fiyat)}`),
+      secenek('yarim', `Yarım porsiyon · ${paraBicimi(menu.yarim_fiyat)}`),
+    );
+    alan.append(porsiyonSecimi);
+  }
   alan.append(dugme, mesaj);
 
   // Açık mı, kapalı mı, neden? Kararı sunucu verdi; burada yalnızca gösterilir.
@@ -48,7 +65,7 @@ function rezervasyonluKart(menu) {
 
     const sonuc = await apiIstek('/api/rezervasyonlar', {
       yontem: 'POST',
-      govde: { menu_id: menu.menu_id },
+      govde: { menu_id: menu.menu_id, porsiyon: porsiyonSecimi?.value ?? 'tam' },
     });
 
     if (!sonuc.ok) {
@@ -62,9 +79,11 @@ function rezervasyonluKart(menu) {
     // rezervasyon replikaya henüz ulaşmamış olabilir (replikasyon gecikmesi).
     // Gösterilen bakiye yordamın kaynakta hesapladığı değerdir.
     rezerveliYap(dugme);
-    const { ucret, bakiye } = sonuc.veri;
+    if (porsiyonSecimi) porsiyonSecimi.disabled = true;
+    const { ucret, bakiye, porsiyon } = sonuc.veri;
+    const porsiyonAdi = porsiyon === 'yarim' ? 'yarım porsiyon' : 'tam porsiyon';
     mesajYaz(mesaj, 'basari',
-      `Rezervasyon yapıldı. Ücret ${paraBicimi(ucret)} · Kalan bakiye ${paraBicimi(bakiye)}`);
+      `Rezervasyon yapıldı (${porsiyonAdi}). Ücret ${paraBicimi(ucret)} · Kalan bakiye ${paraBicimi(bakiye)}`);
   });
 
   kart.append(alan);

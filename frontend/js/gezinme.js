@@ -7,6 +7,7 @@ const SAYFALAR = [
   { adres: '/rezervasyonlarim.html', ad: 'Rezervasyonlarım' },
   { adres: '/bakiye.html', ad: 'Bakiye' },
   { adres: '/degerlendirme.html', ad: 'Değerlendirme' },
+  { adres: '/profil.html', ad: 'Profil' },
 ];
 
 // Yalnızca yöneticiye gösterilir. Bu yalnızca görünümdür: asıl koruma sunucudadır

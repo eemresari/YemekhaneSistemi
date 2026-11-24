@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profil · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <h1>Profil</h1>
+
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+    <p id="durum" class="durum" role="status">Yükleniyor…</p>
+
+    <form id="alerjen-formu" hidden novalidate>
+      <fieldset class="alerjen-secim">
+        <legend>Alerjenlerim</legend>
+        <p class="durum">Seçtiğiniz alerjenleri içeren yemekler menüde uyarıyla gösterilir.</p>
+        <div id="alerjen-liste" class="alerjen-liste"></div>
+      </fieldset>
+      <button id="kaydet" class="dugme" type="submit">Kaydet</button>
+      <p id="mesaj" class="kart-mesaj" role="status" hidden></p>
+    </form>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/profil.js"></script>
+</body>
+</html>

@@ -18,7 +18,8 @@ function rezervasyonSatiri(r) {
   const bilgi = el('div', 'rez-bilgi');
   bilgi.append(
     el('strong', null, gunBasligi(r.tarih)),
-    el('span', 'rez-alt', `${r.yemekhane} · ${r.ogun}`),
+    // Aşama 4: geçmiş rezervasyonlar 'tam' sayılır; yalnızca yarım porsiyon ayrıca yazılır
+    el('span', 'rez-alt', `${r.yemekhane} · ${r.ogun}${r.porsiyon === 'yarim' ? ' · Yarım porsiyon' : ''}`),
   );
 
   const sag = el('div', 'rez-sag');

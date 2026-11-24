@@ -18,6 +18,12 @@ function yemekSatiri(yemek) {
     ek.append(el('span', null, ` · Alerjen: ${yemek.alerjenler.join(', ')}`));
   }
   li.append(ek);
+
+  // Aşama 4: yemekte kullanıcının profilinde seçtiği alerjen var mı? (Kararı sunucu verdi.)
+  if (yemek.uyari.length > 0) {
+    li.classList.add('yemek-uyarili');
+    li.append(el('p', 'alerjen-uyari', `⚠ Alerjeniniz var: ${yemek.uyari.join(', ')}`));
+  }
   return li;
 }
 
@@ -27,6 +33,10 @@ function menuKartiOlustur(menu) {
   const ust = el('div', 'menu-kart-ust');
   ust.append(el('h2', null, menu.ogun), el('span', 'fiyat', paraBicimi(menu.fiyat)));
   kart.append(ust, el('p', 'menu-kart-yemekhane', menu.yemekhane));
+  // Aşama 4: yarım porsiyon yalnızca sunucu fiyat gönderdiyse (kahvaltıda gelmez)
+  if (menu.yarim_fiyat) {
+    kart.append(el('p', 'yarim-fiyat', `Yarım porsiyon: ${paraBicimi(menu.yarim_fiyat)}`));
+  }
 
   const liste = el('ul', 'yemekler');
   for (const yemek of menu.yemekler) liste.append(yemekSatiri(yemek));
