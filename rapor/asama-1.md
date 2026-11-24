@@ -98,6 +98,22 @@ binlog'undan aldı ve bakiye 655,00 olarak göründü. Sonrasında `Replica_IO_R
 PONG
 ```
 
+## Ekran görüntüleri
+
+Başlangıç sayfası (`localhost:8080`). Uygulama servisi henüz yazılmadığı için "HTTP 500" yazıyor:
+
+![Başlangıç sayfası](png/p1_localhost.png)
+
+1. ve 2. bölümdeki komutlar (servisler, `replica-setup` günlüğü, replikasyon durumu, salt okunur):
+
+![Servisler ve replikasyon](png/p1_Test1.png)
+
+3., 4. ve 5. bölümdeki komutlar. En alttaki `ERROR 2002`, son sorgunun replika yeniden başlatıldıktan
+hemen sonra, MySQL henüz bağlantı kabul etmeden çalıştırılmasından kaynaklanıyor. Birkaç saniye sonra
+tekrarlanan sorgunun sonucu (655,00) 5. bölümde:
+
+![Yazma ve okuma denemeleri](png/p1_test2.png)
+
 ## Sonuç
 
 Tüm kontroller README'de beklenen sonuçları verdi. 2. aşamaya geçiliyor 

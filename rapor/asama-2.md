@@ -1,4 +1,4 @@
- # Aşama 2 · Uygulama
+# Aşama 2 · Uygulama
 
 Tarih: 19.11.2026 · Ortam: macOS (Darwin 27.0), Docker 29.8.0, Docker Compose v5.5.1, Node.js 22
 
