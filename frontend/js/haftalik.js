@@ -7,14 +7,6 @@ const durum = document.getElementById('durum');
 const hataKutusu = document.getElementById('hata');
 const gunlerKutusu = document.getElementById('gunler');
 
-// '2026-11-25' → 'Çarşamba, 25 Kasım'
-function gunBasligi(tarih) {
-  const gun = new Date(`${tarih}T00:00:00`);
-  const gunAdi = gun.toLocaleDateString('tr-TR', { weekday: 'long' });
-  const gunAy = gun.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
-  return `${gunAdi}, ${gunAy}`;
-}
-
 // Kartın altındaki mesaj satırına yazar: tur 'hata' (kırmızı) ya da 'basari' (yeşil)
 function mesajYaz(mesaj, tur, metin) {
   mesaj.className = `kart-mesaj kart-mesaj-${tur}`;

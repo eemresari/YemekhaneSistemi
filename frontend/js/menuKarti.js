@@ -1,14 +1,6 @@
 // Bir menüyü kart olarak çizer. Günün menüsü ve haftalık sayfa aynı kartı kullanır.
 // Bütün kararlar (fiyat, rezervasyon açık mı) sunucudan hazır gelir; burada yalnızca gösterilir.
-
-function paraBicimi(deger) {
-  return Number(deger).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
-}
-
-// '2026-11-25 10:00:00' → '10:00'
-function saatBicimi(tarihSaat) {
-  return tarihSaat.slice(11, 16);
-}
+// Biçim fonksiyonları (paraBicimi, saatBicimi) bicim.js'tedir.
 
 function yemekSatiri(yemek) {
   const li = el('li');

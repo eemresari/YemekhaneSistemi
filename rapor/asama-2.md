@@ -453,3 +453,168 @@ Telefon genişliği (yaklaşık 400 px): süzgeçler alt alta, kartlar tek sütu
 satıra iniyor:
 
 ![Günün menüsü, telefon genişliği](png/p2_menu_telefon.png)
+
+## 8. Rezervasyon ve iptal
+
+### API uçları
+
+| Uç | Sunucu | Ne yapar |
+|---|---|---|
+| `POST /api/rezervasyonlar` (gövde `{"menu_id": 50}`) | Kaynak | `sp_rezervasyon_yap` çağırır; `rezervasyon_id`, `ucret`, `bakiye` döner |
+| `GET /api/rezervasyonlar` | Replika | Kullanıcının rezervasyonları; `iptal_edilebilir` alanı Controller'da hesaplanır |
+| `POST /api/rezervasyonlar/:id/iptal` | Kaynak | `sp_rezervasyon_iptal` çağırır; `iade`, `bakiye` döner |
+
+Menü uçlarına ayrıca her menü için `rezervasyonum` alanı eklendi (kullanıcının o menüde aktif ya da
+kullanılmış rezervasyonu var mı). Böylece sayfa yenilendiğinde de düğme "Rezervasyonunuz var"
+olarak görünür.
+
+### Stored procedure kullanan bir isteğin yolu: `POST /api/rezervasyonlar`
+
+**1. Route** · `rotalar/rezervasyon.js`; önce giriş denetimi, sonra Controller:
+
+```js
+app.use('/api/rezervasyonlar', rezervasyonRotalari);   // index.js
+router.use(girisGerekli);                                // rotalar/rezervasyon.js
+router.post('/', rezervasyon.yap);
+```
+
+**2. Controller** · `controllers/rezervasyonController.js` girdiyi denetler. Kullanıcı kimliği
+istek gövdesinden değil **oturumdan** alınır; kimse başkası adına rezervasyon yapamaz. Rezervasyon
+kurallarından hiçbiri burada yoktur:
+
+```js
+const menuId = req.body?.menu_id;
+if (!gecerliKimlik(menuId)) {
+  return res.status(400).json({ hata: 'Geçersiz menü.' });
+}
+const sonuc = await rezervasyonVeri.rezervasyonYap(req.session.kullanici.id, menuId);
+res.status(201).json(sonuc);
+```
+
+**3. Veri katmanı** · `veri/rezervasyonVeri.js`. Yazma işlemi olduğu için kaynağa bağlı
+`yazmaHavuzu` kullanılır. Süre, aynı menüye ikinci kayıt, kapasite ve bakiye kontrolü, ücretin
+düşülmesi ve bakiye hareketinin yazılması yordamın içinde, tek transaction'da ve satır kilitleriyle
+(`FOR UPDATE`) yapılır:
+
+```js
+const [sonuclar] = await yazmaHavuzu.execute('CALL sp_rezervasyon_yap(?, ?)', [kullaniciId, menuId]);
+return sonuclar[0][0];   // { rezervasyon_id, ucret, bakiye }
+```
+
+**4. Yanıt ya da hata** · Başarılıysa 201 ve yordamın döndürdüğü satır. Bir kural çiğnenirse yordam
+`SIGNAL SQLSTATE '45000'` ile Türkçe bir mesaj fırlatır; hata Controller'da yakalanmaz, `index.js`'teki
+hata ara katmanına düşer ve mesaj olduğu gibi arayüze iletilir. Bu tek kural dört yordamın hepsi
+için geçerlidir:
+
+```js
+if (err.sqlState === '45000') {
+  return res.status(409).json({ hata: err.sqlMessage });
+}
+```
+
+### Doğrulama (Apache üzerinden)
+
+Rezervasyon:
+
+```
+> giriş yok, menu 50
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+> mehmet (öğrenci), yarın öğle, menu 50
+{"rezervasyon_id":368,"ucret":"40.00","bakiye":"315.00"}  -> HTTP 201
+> mehmet, aynı menü ikinci kez
+{"hata":"Bu menü için zaten rezervasyonunuz var."}  -> HTTP 409
+> mehmet, bugünkü öğle, menu 44
+{"hata":"Bu menü için rezervasyon süresi doldu."}  -> HTTP 409
+> ayşe (bakiye 12,50), yarın kahvaltı 25 TL, menu 49
+{"hata":"Bakiye yetersiz."}  -> HTTP 409
+> olmayan menü, menu 99999
+{"hata":"Menü bulunamadı."}  -> HTTP 409
+> bozuk menu_id ("abc")
+{"hata":"Geçersiz menü."}  -> HTTP 400
+> bozuk JSON
+{"hata":"İstek gövdesi geçerli JSON değil."}  -> HTTP 400
+```
+
+![Rezervasyon API denemesi](png/p2_rezervasyon_api.png)
+
+Yazmanın kaynağa gittiği ve replikaya geçtiği, iki sunucu ayrı ayrı sorgulanarak görüldü
+(368 numaralı rezervasyon, Mehmet'in bakiyesi 355 → 315 TL):
+
+```
+== mysql-primary (server_id 1)
+id   menu_id  durum  ucret  bakiye          tur          tutar   rezervasyon_id
+368  50       aktif  40.00  315.00          rezervasyon  -40.00  368
+== mysql-replica (server_id 2)
+id   menu_id  durum  ucret  bakiye          tur          tutar   rezervasyon_id
+368  50       aktif  40.00  315.00          rezervasyon  -40.00  368
+```
+
+Listeleme ve iptal:
+
+```
+> mehmet, GET /rezervasyonlar (özet)
+14 kayıt: 10 aktif (hepsi iptal_edilebilir=true), 3 kullanildi, 1 iptal (iptal_edilebilir=false)
+> mehmet, 369 numarayı iptal (yarın akşam)
+{"rezervasyon_id":369,"iade":"40.00","bakiye":"315.00"}  -> HTTP 200
+> mehmet, 369 tekrar iptal
+{"hata":"Yalnızca aktif rezervasyonlar iptal edilebilir."}  -> HTTP 409
+> mehmet, 136 iptal (kullanıldı)
+{"hata":"Yalnızca aktif rezervasyonlar iptal edilebilir."}  -> HTTP 409
+> mehmet, 211 iptal (başka kullanıcının)
+{"hata":"Rezervasyon bulunamadı."}  -> HTTP 409
+> hande, 185 iptal (bugün kahvaltı, 07:00 geçti)
+{"hata":"Bu rezervasyon için iptal süresi doldu."}  -> HTTP 409
+> mehmet, abc iptal
+{"hata":"Geçersiz rezervasyon."}  -> HTTP 400
+> mehmet, iptal edilen menüye (51) yeniden rezervasyon
+{"rezervasyon_id":369,"ucret":"40.00","bakiye":"275.00"}  -> HTTP 201
+```
+
+Başka bir kullanıcının rezervasyonu "bulunamadı" olarak yanıtlanır; böylece o numaralı bir kaydın
+var olduğu bile öğrenilemez. İptal edilen menüye yeniden rezervasyon yeni satır açmaz, eski kayıt
+yeniden aktif olur (şemadaki `UNIQUE (kullanici_id, menu_id)`).
+
+### Rezervasyondan sonraki bakiye neden kaynaktan okunur? (replikasyon gecikmesi)
+
+Replika, kaynakta yapılan değişiklikleri asenkron olarak alır: kaynak bir transaction'ı commit
+ettiğinde bunu ikili günlüğüne (binlog) yazar, replika bu kaydı ağ üzerinden çeker, kendi relay
+günlüğüne yazar ve ardından uygular. Bu zincir genellikle milisaniyeler sürse de sıfır değildir;
+yoğun yük, uzun bir transaction ya da ağ gecikmesi olduğunda saniyelere çıkabilir. Rezervasyondan
+hemen sonra bakiyeyi replikadan okusaydık, değişiklik henüz oraya ulaşmamışsa kullanıcı eski
+bakiyesini (ücret düşülmemiş hâlini) görürdü; parasının çekilmediğini sanıp aynı işlemi tekrar
+deneyebilirdi. Bu yüzden rezervasyon ve iptalden sonra gösterilen bakiye replikadan okunmaz:
+`sp_rezervasyon_yap` ve `sp_rezervasyon_iptal` yeni bakiyeyi kendi transaction'ları içinde, kaynakta
+hesaplayıp döndürür ve arayüz bu değeri gösterir. Aynı nedenle arayüz, rezervasyon ya da iptalden
+sonra listeyi replikadan yeniden çekmez; yalnızca işlem yapılan kartı ya da satırı günceller.
+Listeleme gibi birkaç saniyelik eskiliğin zarar vermediği okumalar ise replikaya gider ve kaynağın
+yükünü azaltır.
+
+### Arayüz
+
+**Haftalık menü** (`js/haftalik.js`): "Rezervasyon yap" düğmesi `POST /api/rezervasyonlar` çağırır.
+Başarılıysa düğme "Rezervasyonunuz var" olup pasifleşir ve altında ücret ile kaynaktan gelen kalan
+bakiye yazar; hata olursa yordamın mesajı kartın altında kırmızıyla gösterilir.
+
+![Başarılı rezervasyon](png/p2_rezervasyon_basarili.png)
+
+Bakiyesi 12,50 TL olan öğrenci 25 TL'lik kahvaltıyı ayırtmaya çalışıyor; mesaj yordamdan gelir:
+
+![Bakiye yetersiz](png/p2_rezervasyon_hata.png)
+
+**Rezervasyonlarım** (`rezervasyonlarim.html`, `js/rezervasyonlarim.js`): her rezervasyon tarih,
+yemekhane, öğün, ücret ve durum etiketiyle (Aktif, Kullanıldı, İptal edildi) listelenir. "İptal et"
+düğmesi yalnızca sunucunun `iptal_edilebilir: true` dediği satırlarda bulunur; arayüz tarih ya da
+saat karşılaştırmaz. İptal önce onay ister; geri alınması zor bir eylem olduğu için düğme ana renkte
+değil, kırmızı çerçevelidir.
+
+![Rezervasyonlarım](png/p2_rezervasyonlarim.png)
+
+İptalden sonra satırın durumu "İptal edildi" olur, iade ve yeni bakiye yazar:
+
+![Rezervasyon iptali](png/p2_rezervasyonlarim_iptal.png)
+
+Telefon genişliği (yaklaşık 400 px):
+
+![Rezervasyonlarım, telefon genişliği](png/p2_rezervasyonlarim_telefon.png)
+
+Para, saat ve gün biçimleri üç sayfanın ortak kullandığı `js/bicim.js`'e taşındı.
