@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menü · Yönetim · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <p><a href="/yonetim.html">← Menü listesine dön</a></p>
+    <h1 id="baslik">Yeni menü</h1>
+
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+
+    <form id="menu-formu" class="menu-formu" novalidate hidden>
+      <div class="form-izgara">
+        <div>
+          <label for="yemekhane">Yemekhane</label>
+          <select id="yemekhane"></select>
+        </div>
+        <div>
+          <label for="tarih">Tarih</label>
+          <input id="tarih" type="date">
+        </div>
+        <div>
+          <label for="ogun">Öğün</label>
+          <select id="ogun"></select>
+        </div>
+        <div>
+          <label for="ogrenci-fiyati">Öğrenci fiyatı (TL)</label>
+          <input id="ogrenci-fiyati" type="number" step="0.01" inputmode="decimal">
+        </div>
+        <div>
+          <label for="personel-fiyati">Personel fiyatı (TL)</label>
+          <input id="personel-fiyati" type="number" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+
+      <h2>Yemekler</h2>
+      <div id="katalog" class="katalog"></div>
+
+      <div class="form-alt">
+        <button id="kaydet" class="dugme" type="submit">Kaydet</button>
+        <p id="mesaj" class="kart-mesaj" role="status" hidden></p>
+      </div>
+    </form>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/bicim.js"></script>
+  <script src="/js/yonetim-menu.js"></script>
+</body>
+</html>

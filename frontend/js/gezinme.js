@@ -9,6 +9,12 @@ const SAYFALAR = [
   { adres: '/degerlendirme.html', ad: 'Değerlendirme' },
 ];
 
+// Yalnızca yöneticiye gösterilir. Bu yalnızca görünümdür: asıl koruma sunucudadır
+// (yoneticiGerekli ara katmanı); başkası adresi elle yazsa da API 403 döner.
+const YONETICI_SAYFALARI = [
+  { adres: '/yonetim.html', ad: 'Yönetim', altSayfalar: ['/yonetim-menu.html'] },
+];
+
 // Kısa yardımcı: etiket oluşturur, metni textContent ile yazar (HTML olarak yorumlanmaz)
 function el(etiket, sinif, metin) {
   const oge = document.createElement(etiket);
@@ -31,10 +37,12 @@ async function gezinmeyiKur() {
 
   const baglantilar = el('nav', 'gezinme-baglantilar');
   baglantilar.setAttribute('aria-label', 'Ana menü');
-  for (const sayfa of SAYFALAR) {
+  const sayfalar = kullanici.rol === 'yonetici' ? [...SAYFALAR, ...YONETICI_SAYFALARI] : SAYFALAR;
+  for (const sayfa of sayfalar) {
     const a = el('a', null, sayfa.ad);
     a.href = sayfa.adres;
-    if (location.pathname === sayfa.adres) a.setAttribute('aria-current', 'page');
+    const aktif = location.pathname === sayfa.adres || sayfa.altSayfalar?.includes(location.pathname);
+    if (aktif) a.setAttribute('aria-current', 'page');
     baglantilar.append(a);
   }
   ic.append(baglantilar);

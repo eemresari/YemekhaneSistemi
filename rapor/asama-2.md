@@ -731,3 +731,143 @@ Gönderildikten sonra form, kaydedilen puan ve yorumla yer değiştirir:
 ![Değerlendirme kaydedildi](png/p2_degerlendirme_kaydedildi.png)
 
 ![Değerlendirme, telefon genişliği](png/p2_degerlendirme_telefon.png)
+
+## 10. Yönetici paneli
+
+### Yetki
+
+`ara/yoneticiGerekli.js` ara katmanı `/api/yonetim/...` altındaki bütün uçların önünde durur: giriş
+yoksa **401** (kim olduğu bilinmiyor), giriş var ama rol `yonetici` değilse **403** (kim olduğu
+biliniyor, yetkisi yok). Gezinme çubuğundaki "Yönetim" bağlantısı yalnızca yöneticiye gösterilir; bu
+yalnızca görünümdür, asıl koruma sunucudadır. Öğrenci adresi elle yazsa da API 403 döner ve sayfa bu
+mesajı gösterir.
+
+### API uçları
+
+| Uç | Sunucu | Ne yapar |
+|---|---|---|
+| `GET /api/yonetim/menuler?baslangic=` | Replika | 7 günün menüleri: iki fiyat, doluluk (`v_menu_doluluk`: rezerve / kapasite, %), ortalama puan (`v_menu_puan`: oy sayısı, ortalama) |
+| `GET /api/yonetim/yemekler` | Replika | Form için kategori kategori yemek kataloğu |
+| `GET /api/yonetim/menuler/:id` | Kaynak | Düzenlenecek menü (yazmanın dayanağı olan okuma) |
+| `POST /api/yonetim/menuler` | Kaynak | Yeni menü ve yemekleri, tek transaction |
+| `PUT /api/yonetim/menuler/:id` | Kaynak | Fiyatlar ve yemek listesi, tek transaction |
+
+Controller'daki kurallar: yeni menünün tarihi bugünden önce olamaz; geçmiş menü düzenlenemez;
+fiyatlar sıfır ya da pozitif ve en fazla iki ondalıklı; en az bir yemek seçilir. Düzenlemede
+yemekhane, tarih ve öğün değiştirilemez (o menüye rezervasyon yapılmış olabilir). Fiyat değişikliği
+mevcut rezervasyonları etkilemez, çünkü her rezervasyon ödediği ücreti kendi satırında
+(`rezervasyonlar.ucret`) saklar. Menü silme bilerek yoktur: ödev "oluşturma ve düzenleme" ister ve
+rezervasyonu olan bir menünün silinmesi ödenmiş ücretleri boşta bırakırdı.
+
+### Uygulamanın yönettiği transaction
+
+Önceki yazma işlemlerinde transaction'ı stored procedure açıp kapatıyordu. Menü oluşturma için
+yordam yoktur ve iş iki tabloya yazar (`menuler`, `menu_yemekleri`); ikisinin birlikte yazılması
+gerekir. `veri/yonetimVeri.js` havuzdan tek bir bağlantı alır (transaction bağlantıya aittir) ve işi
+şu yardımcıyla çalıştırır:
+
+```js
+async function transactionIcinde(is) {
+  const baglanti = await yazmaHavuzu.getConnection();
+  try {
+    await baglanti.beginTransaction();
+    const sonuc = await is(baglanti);
+    await baglanti.commit();
+    return sonuc;
+  } catch (err) {
+    await baglanti.rollback();
+    throw err;
+  } finally {
+    baglanti.release();     // bağlantı havuza geri döner
+  }
+}
+```
+
+Veritabanı hataları da veri katmanında anlamlı sonuçlara çevrilir; MySQL'e özgü kodlar Controller'a
+sızmaz: `ER_DUP_ENTRY` (aynı yemekhane + tarih + öğün, `uq_menu`) → 409,
+`ER_NO_REFERENCED_ROW_2` (olmayan yemek) → 400.
+
+### Doğrulama (Apache üzerinden)
+
+```
+> giriş yok, GET /yonetim/menuler
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+> öğrenci, GET /yonetim/menuler
+{"hata":"Bu işlem için yönetici yetkisi gerekir."}  -> HTTP 403
+> öğrenci, POST /yonetim/menuler
+{"hata":"Bu işlem için yönetici yetkisi gerekir."}  -> HTTP 403
+> yönetici, GET /yonetim/menuler (bu hafta, özet)
+baslangic=2026-11-24 menu=42
+  44 2026-11-24 Merkez Yemekhane Öğle 40.00 90.00 7/400 %1.8 puan None (0 oy) duzenlenebilir True
+> yönetici, GET /yonetim/menuler?baslangic=2026-11-17 (geçen hafta, puanlı)
+  2 2026-11-17 Merkez Yemekhane Öğle 40.00 90.00 6/400 %1.5 puan 2.33 (3 oy) duzenlenebilir False
+  5 2026-11-17 Mühendislik Yemekhanesi Öğle 40.00 90.00 5/60 %8.3 puan 3.50 (2 oy) duzenlenebilir False
+> yönetici, GET /yonetim/yemekler
+7 kategori, 52 yemek
+> yeni menü: 1 Aralık, Merkez, Öğle, 40/90, yemekler [1,14,23]
+{"menu_id":85}  -> HTTP 201
+> aynı menü tekrar
+{"hata":"Bu yemekhane, tarih ve öğün için zaten bir menü var."}  -> HTTP 409
+> geçmiş tarih (20 Kasım)
+{"hata":"Geçmiş bir tarihe menü eklenemez."}  -> HTTP 400
+> yemeksiz menü
+{"hata":"En az bir yemek seçmelisiniz."}  -> HTTP 400
+> eksi fiyat
+{"hata":"Fiyatlar sıfır ya da pozitif, en fazla iki ondalıklı sayı olmalıdır."}  -> HTTP 400
+> menü 85 düzenle: 45/95, yemekler [1,14,23,30]
+{"menu_id":85}  -> HTTP 200
+> menü 1 (17 Kasım, geçmiş) düzenle
+{"hata":"Geçmiş menüler düzenlenemez."}  -> HTTP 409
+> menü 99999 düzenle
+{"hata":"Menü bulunamadı."}  -> HTTP 404
+> öğrenci, GET /menu/gunluk?tarih=2026-12-01
+  85 Merkez Yemekhane Öğle fiyat 45.00 ['Mercimek Çorbası', 'Karnıyarık', 'Şehriyeli Pilav', 'Mevsim Salata'] acik True
+```
+
+Yöneticinin eklediği menü öğrencinin günlük menüsünde öğrenci fiyatıyla ve rezervasyona açık olarak
+görünüyor; örnek verideki menüler bittiğinde (30 Kasım) yenileri panelden eklenebilir.
+
+**Rollback kanıtı.** İki denemede yemek listesine olmayan bir yemek (9999) konuldu:
+
+```
+> ROLLBACK denemesi: 1 Aralık akşam, yemekler [1, 9999]
+{"hata":"Seçilen yemekhane, öğün ya da yemeklerden biri bulunamadı."}  -> HTTP 400
+> menü 85 düzenle, ROLLBACK: fiyat 10/10, yemekler [1, 9999]
+{"hata":"Seçilen yemekhane, öğün ya da yemeklerden biri bulunamadı."}  -> HTTP 400
+
+-- kaynakta 1 Aralık menüleri:
+id  tarih       ogun_id  ogrenci_fiyati  personel_fiyati  yemekler
+85  2026-12-01  2        45.00           95.00            1,14,23,30
+```
+
+Birinci denemede `menuler` satırı eklendikten sonra `menu_yemekleri` hata verdi; transaction geri
+alındığı için yemeksiz bir akşam menüsü kalmadı (kaynakta 1 Aralık için yalnızca öğle menüsü var).
+İkinci denemede fiyatlar önce 10/10 yapıldı, ardından yemek eklenirken hata çıktı; fiyatlar 45/95'te,
+yemekler eski hâlinde kaldı.
+
+### Arayüz
+
+`yonetim.html` (`js/yonetim.js`): haftalık rapor tablosu (tarih, yemekhane · öğün, öğrenci / personel
+fiyatı, doluluk çubuğu, ★ ortalama · oy sayısı), önceki/sonraki hafta düğmeleri. Bugünün ve sonraki
+günlerin menülerinde "Düzenle" bağlantısı, geçmiştekilerde "Geçmiş" yazar; bu karar sunucudan gelen
+`duzenlenebilir` alanına göre verilir.
+
+![Yönetim raporu](png/p2_yonetim_rapor.png)
+
+`yonetim-menu.html` (`js/yonetim-menu.js`): tek form, iki iş: adreste `?id=` yoksa yeni menü, varsa
+düzenleme (yemekhane, tarih, öğün kilitli). Yemekler kategori kategori onay kutularıyla seçilir.
+Yeni menü kaydedilince sayfa düzenleme moduna geçer. Panelden eklenen menü listede:
+
+![Eklenen menü listede](png/p2_yonetim_menu_yeni.png)
+
+Aynı yemekhane, tarih ve öğün için ikinci menü:
+
+![Aynı menü hatası](png/p2_yonetim_menu_hata.png)
+
+Öğrenci adresi elle yazdığında (bağlantı çubukta görünmez):
+
+![Yetkisiz erişim](png/p2_yonetim_yetkisiz.png)
+
+Telefon genişliği: tablo kendi alanında yana kaydırılır, sayfa taşmaz:
+
+![Yönetim, telefon genişliği](png/p2_yonetim_telefon.png)

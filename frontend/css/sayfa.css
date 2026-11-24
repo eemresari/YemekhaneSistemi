@@ -236,6 +236,68 @@
 .yildiz-satir label:hover ~ label { color: var(--vurgu); }
 .yildiz-satir input:focus-visible + label { outline: 3px solid var(--vurgu); outline-offset: 2px; border-radius: 4px; }
 
+/* ---------- Yönetim ---------- */
+.arac-cubugu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.aralik { min-width: 9rem; text-align: center; }
+.yeni-menu { margin-left: auto; }
+.dugme-ince-acik {
+  background: var(--yuzey);
+  color: var(--ana);
+  border: 1px solid var(--ana);
+}
+.dugme-ince-acik:hover { background: var(--zemin); color: var(--ana-koyu); }
+
+.yonetim-tablo td { vertical-align: middle; }
+.doluluk-cubuk {
+  width: 100%;
+  min-width: 80px;
+  height: 6px;
+  background: var(--zemin);
+  border-radius: 999px;
+  margin: 0.2rem 0;
+  overflow: hidden;
+}
+.doluluk-dolu { height: 100%; background: var(--ana); }
+.puan-ort { color: var(--metin); font-weight: 600; }
+
+.form-izgara {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.katalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+.yemek-grup {
+  background: var(--yuzey);
+  border: 1px solid var(--cizgi);
+  border-radius: var(--kose);
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin: 0;
+}
+.yemek-grup legend { font-weight: 700; padding: 0 0.25rem; }
+.yemek-secim {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400;
+  padding: 0.3rem 0;             /* parmakla seçilebilir */
+  margin: 0;
+  cursor: pointer;
+}
+.yemek-secim input { width: 1.1rem; height: 1.1rem; padding: 0; margin: 0; flex-shrink: 0; }
+.form-alt { margin-top: 1.25rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.form-alt .kart-mesaj { margin: 0; }
+
 /* İkincil düğme: iptal gibi geri alınması zor eylemler ana renkte durmasın */
 .dugme-ikincil {
   background: transparent;

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yönetim · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <h1>Yönetim · Menüler</h1>
+
+    <div class="arac-cubugu">
+      <button id="onceki" class="dugme dugme-ince-acik" type="button">← Önceki hafta</button>
+      <strong id="aralik" class="aralik"></strong>
+      <button id="sonraki" class="dugme dugme-ince-acik" type="button">Sonraki hafta →</button>
+      <a class="dugme yeni-menu" href="/yonetim-menu.html">+ Yeni menü</a>
+    </div>
+
+    <p id="durum" class="durum" role="status">Yükleniyor…</p>
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+
+    <div class="tablo-kaydir">
+      <table class="hareket-tablo yonetim-tablo" hidden>
+        <thead>
+          <tr>
+            <th>Tarih</th><th>Yemekhane · Öğün</th><th class="sag">Fiyat (Ö / P)</th>
+            <th>Doluluk</th><th>Puan</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="menuler"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/bicim.js"></script>
+  <script src="/js/yonetim.js"></script>
+</body>
+</html>
