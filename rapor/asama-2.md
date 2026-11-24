@@ -871,3 +871,102 @@ Aynı yemekhane, tarih ve öğün için ikinci menü:
 Telefon genişliği: tablo kendi alanında yana kaydırılır, sayfa taşmaz:
 
 ![Yönetim, telefon genişliği](png/p2_yonetim_telefon.png)
+
+## 11. Hata mesajlarının arayüze taşınması
+
+### Bir iş kuralı hatasının yolu
+
+İş kuralları stored procedure'lerdedir. Bir kural çiğnenince yordam `SIGNAL SQLSTATE '45000'` ile
+Türkçe bir mesaj fırlatır. Bu mesaj hiçbir katmanda yeniden yazılmaz, olduğu gibi kullanıcıya ulaşır:
+
+```
+sp_rezervasyon_yap            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Bakiye yetersiz.'
+  → rezervasyonVeri.js        mysql2 hatayı fırlatır: err.sqlState = '45000', err.sqlMessage
+  → rezervasyonController.js  hatayı yakalamaz, next(err) ile Express'e bırakır
+  → index.js hata ara katmanı  409 { "hata": "Bakiye yetersiz." }
+  → js/api.js apiIstek        { ok: false, durum: 409, hata: "Bakiye yetersiz." }
+  → js/haftalik.js            kartın altına kırmızıyla yazar, düğmeyi yeniden açar
+```
+
+Arayüzde iş kuralı yoktur. Bakiye, kapasite, süre ya da tutar sınırı tarayıcıda denetlenmez,
+yalnızca sunucunun mesajı gösterilir. Böylece kural tek yerde (veritabanında) durur ve aynı kuralı
+başka bir istemci (mobil uygulama, turnike) de kullanır.
+
+### Durum kodları
+
+| Kod | Kaynak | Örnek mesaj |
+|---|---|---|
+| 400 | Controller girdi denetimi | "Geçersiz tutar.", "Puan 1 ile 5 arasında bir tamsayı olmalıdır." |
+| 401 | `girisGerekli` ara katmanı | "Bu işlem için giriş yapmalısınız." |
+| 403 | `yoneticiGerekli`, değerlendirme kuralı | "Bu işlem için yönetici yetkisi gerekir." |
+| 404 | Controller | "Menü bulunamadı." |
+| 409 | Yordam (`SQLSTATE 45000`) ya da tekrar kaydı (`ER_DUP_ENTRY`) | "Bakiye yetersiz.", "Bu menüyü zaten değerlendirdiniz." |
+| 503 | Veritabanına bağlanılamadı | "Veritabanına şu an ulaşılamıyor. Lütfen biraz sonra tekrar deneyin." |
+| 500 | Beklenmeyen hata (ayrıntı günlüğe yazılır) | "Beklenmeyen bir hata oluştu." |
+
+### Yordam mesajları ve göründükleri ekranlar
+
+| Yordam | Mesaj | Ekran |
+|---|---|---|
+| `sp_rezervasyon_yap` | Bakiye yetersiz. · Yemekhane kapasitesi dolu. · Bu menü için rezervasyon süresi doldu. · Bu menü için zaten rezervasyonunuz var. · Menü bulunamadı. · Hesabınız pasif durumda. | Haftalık, kartın altında |
+| `sp_rezervasyon_iptal` | Bu rezervasyon için iptal süresi doldu. · Yalnızca aktif rezervasyonlar iptal edilebilir. · Rezervasyon bulunamadı. | Rezervasyonlarım, satırın altında |
+| `sp_bakiye_yukle` | Yükleme tutarı 10 ile 1000 TL arasında olmalıdır. · Hesabınız pasif durumda. | Bakiye, Yükle düğmesinin yanında |
+| `sp_turnike_gecis` | Şu an bu yemekhanede servis yok. · Bu rezervasyon zaten kullanıldı. · Bu öğün için aktif rezervasyonunuz yok. | Web arayüzünde kullanılmaz (turnike kart okuyucudan çağrılır) |
+
+Haftalık sayfası "süre doldu", "kapasite dolu" ve "zaten rezervasyonunuz var" durumlarını düğmeye
+basılmadan da gösterir. Menü listesi bu durumları sunucudan `rezervasyon_acik` ve `pasif_neden`
+alanlarıyla alır (bkz. bölüm 7). Yordamdaki denetim yine de kalır, çünkü sayfa açıldıktan sonra
+kapasite dolabilir ya da süre geçebilir.
+
+Örnekler: "Bakiye yetersiz." (bölüm 8), "Yükleme tutarı 10 ile 1000 TL arasında olmalıdır."
+(bölüm 9), yönetim panelindeki "Bu yemekhane, tarih ve öğün için zaten bir menü var." (bölüm 10).
+
+### Sunucu ya da bağlantı sorunlarında arayüz
+
+Yordam mesajlarının yanında, isteğin sunucuya hiç ulaşmadığı ya da yarıda kaldığı durumlar da ele
+alındı (`js/api.js`, `js/gezinme.js`, `js/giris.js`, `index.js`):
+
+| Durum | Ne olur |
+|---|---|
+| Ağ hatası (fetch başarısız) | "Sunucuya ulaşılamıyor." |
+| Uygulama kapalı (Apache JSON değil kendi 502/503 sayfasını döndürür) | "Sunucu şu an yanıt vermiyor. Lütfen biraz sonra tekrar deneyin." |
+| Kaynak veritabanı kapalı | Yazma 503 ve "Veritabanına şu an ulaşılamıyor…" döner. Okumalar replikadan sürer. |
+| Sayfa açılırken giriş yok (401) | Giriş sayfasına yönlendirilir |
+| Sayfa açıkken oturum düştü (süre doldu ya da uygulama yeniden başladı) | Bir sonraki istekte giriş sayfasına gidilir, "Oturumunuz sona erdi. Lütfen yeniden giriş yapın." yazar |
+| `/api/ben` 401 dışında bir hata döndürdü | Giriş sayfasına **atılmaz** (kullanıcı şifresini yanlış girdiğini sanmasın), mesaj sayfada gösterilir |
+
+Giriş sayfasında yanlış şifre de 401 döndürür. Bu yüzden "401 gelince giriş sayfasına git"
+davranışı `api.js`'e konmadı. `api.js` yalnızca `oturumDustu` adlı bir fonksiyon tanımlıysa onu
+çağırır. Bu fonksiyon `gezinme.js`'tedir ve giriş sayfası `gezinme.js`'i yüklemez. `girisYapildi`
+bayrağı da açılıştaki 401'i ("hiç giriş yapılmamış") işlem sırasındaki 401'den ("oturum düştü") ayırır.
+
+Düzeltmeden önce oturum düştüğünde kullanıcı sayfada kalıyor, her düğmede aynı mesajı görüyordu:
+
+![Oturum düşmesi, düzeltmeden önce](png/p2_hata_oturum_once.png)
+
+Düzeltmeden sonraki davranış sunucu tarafında curl ile doğrulandı. Uygulama yeniden başlatıldıktan
+sonra eski çerezle yapılan istek 401 döndürdü. Tarayıcıdaki yönlendirme bu raporda görüntülenmedi.
+
+### Deneme: kaynak veritabanı kapalıyken (24.11.2026)
+
+`docker compose stop mysql-primary` ile kaynak durduruldu, replika ve uygulama açık bırakıldı:
+
+| İstek | Havuz | Sonuç |
+|---|---|---|
+| `POST /api/bakiye/yukle` (50 TL) | yazma (kaynak) | 503 "Veritabanına şu an ulaşılamıyor…" |
+| `GET /api/bakiye` | okuma (replika) | 200 |
+| `GET /api/menu/gunluk`, `/haftalik`, `/secenekler` | okuma (replika) | 200, 3–7 ms |
+| `GET /api/rezervasyonlar`, `/api/degerlendirmeler` | okuma (replika) | 200, 2–4 ms |
+
+Bu deneme okuma/yazma ayrımını doğruluyor: kaynak gidince sistem salt okunur çalışmaya devam etti.
+
+Kaynak yeniden başlatılınca yazma hemen çalıştı. Replika ise kaynağa 60 saniyede bir yeniden
+bağlanmayı denediği için yaklaşık bir dakika eski veriyi gösterdi: kaynakta bakiye 515,00, replikada
+465,00 TL. Sonra yetişti (`Seconds_Behind_Source: 0`). Bu, bölüm 8'de anlatılan replikasyon
+gecikmesinin abartılmış ama gerçek bir örneği. İşlemden sonra gösterilen bakiyenin replikadan değil
+yordamın kaynakta döndürdüğü değerden alınmasının nedeni de bu.
+
+![Kaynak kapalıyken bakiye yükleme](png/p2_hata_db_yok.png)
+
+Bakiye ve hareket geçmişi replikadan okunduğu için ekranda duruyor. Yalnızca yükleme (yazma)
+reddedildi.
