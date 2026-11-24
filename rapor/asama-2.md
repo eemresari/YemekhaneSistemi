@@ -970,3 +970,43 @@ yordamın kaynakta döndürdüğü değerden alınmasının nedeni de bu.
 
 Bakiye ve hareket geçmişi replikadan okunduğu için ekranda duruyor. Yalnızca yükleme (yazma)
 reddedildi.
+
+## 12. Telefon uyumu (400 px)
+
+Sayfalar baştan akışkan yazıldı: kartlar ve formlar `grid` ile `auto-fill` / `auto-fit` kullanır,
+satırlar `flex-wrap` ile alt satıra iner, geniş tablolar `.tablo-kaydir` içinde kendi alanında yana
+kayar. Bu yüzden genişliğe bağlı kırılma noktası yalnızca bir tane var (`css/sayfa.css`,
+`@media (max-width: 600px)`). Bu kırılma noktası iki sorunu düzeltir.
+
+**Gezinme çubuğu:** Bağlantı sayısı 5'e (öğrenci) ve 6'ya (yönetici) çıkınca 400 px'te gezinme
+4–5 satıra iniyor ve ekranın yaklaşık dörtte birini kaplıyordu:
+
+![Gezinme, düzeltmeden önce](png/p2_gezinme_telefon_once.png)
+
+Telefonda artık üst satırda başlık ile ad ve Çıkış düğmesi duruyor. Bağlantılar alttaki tek satırda
+parmakla yana kaydırılıyor (`flex-wrap: nowrap; overflow-x: auto`). `gezinme.js` aktif sayfanın
+bağlantısını `scrollIntoView` ile görünür alana getiriyor. Böylece en sondaki "Yönetim" ekran
+dışında kalmıyor. Gezinmenin yüksekliği her sayfada 99 px oldu. Masaüstünde bir şey değişmedi.
+
+**Rezervasyonlarım satırları:** Fiyat ve durum etiketi, metin kısaysa yanda, uzunsa altta
+duruyordu. Telefonda bilgi kısmı artık tam satır kaplıyor, fiyat ve durum her satırda altta.
+
+### Doğrulama
+
+Görüntüler başsız Chrome ile, 400 × 900 CSS pikselde (`deviceScaleFactor: 2`, `mobile: true`)
+alındı. Her sayfada `document.documentElement.scrollWidth` ölçüldü:
+
+| Sayfa | Kullanıcı | Sayfa genişliği | Gezinme yüksekliği |
+|---|---|---|---|
+| giris.html | — | 400 px | — |
+| menu.html, haftalik.html, rezervasyonlarim.html, bakiye.html, degerlendirme.html | öğrenci | 400 px | 99 px |
+| yonetim.html, yonetim-menu.html | yönetici | 400 px | 99 px |
+
+Sayfa genişliği pencere genişliğine (400 px) eşit, yani hiçbir sayfada yatay taşma yok. Yönetim
+tablosu sayfayı değil yalnızca kendi alanını yana kaydırıyor.
+
+Bölüm 7–10'daki telefon görüntüleri de bu yöntemle yeniden alındı. Ek olarak:
+
+![Haftalık, telefon genişliği](png/p2_haftalik_telefon.png)
+
+![Menü formu, telefon genişliği](png/p2_yonetim_menu_telefon.png)

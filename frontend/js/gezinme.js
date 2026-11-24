@@ -80,5 +80,7 @@ async function gezinmeyiKur() {
   ic.append(kutu);
 
   document.getElementById('gezinme').append(ic);
+  // Telefonda bağlantılar yana kayar: aktif sayfanın bağlantısı görünür alana getirilir
+  baglantilar.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   return kullanici;
 }
