@@ -24,7 +24,18 @@ async function apiIstek(yol, { yontem = 'GET', govde } = {}) {
   }
 
   if (!yanit.ok) {
-    return { ok: false, durum: yanit.status, hata: veri?.hata ?? 'Beklenmeyen bir hata oluştu.' };
+    // Giriş sonrası sayfalarda oturum düşmüşse gezinme.js kullanıcıyı giriş sayfasına götürür.
+    // (Giriş sayfası gezinme.js'i yüklemez: orada yanlış şifrenin 401'i yalnızca mesajdır.)
+    if (yanit.status === 401 && typeof oturumDustu === 'function') oturumDustu();
+
+    let hata = veri?.hata;
+    if (!hata) {
+      // Uygulama kapalıysa Apache JSON değil kendi 502/503 sayfasını döndürür
+      hata = yanit.status >= 502 && yanit.status <= 504
+        ? 'Sunucu şu an yanıt vermiyor. Lütfen biraz sonra tekrar deneyin.'
+        : 'Beklenmeyen bir hata oluştu.';
+    }
+    return { ok: false, durum: yanit.status, hata };
   }
   return { ok: true, durum: yanit.status, veri };
 }

@@ -23,9 +23,21 @@ async function acilis() {
   const sonuc = await apiIstek('/api/ben');
   if (sonuc.ok) {
     oturumuGoster(sonuc.veri.kullanici);
-  } else {
-    formuGoster();
+    return;
   }
+  formuGoster();
+  if (sonuc.durum !== 401) {
+    // 401 olağan durumdur (giriş yok); başka hata varsa (sunucu kapalı gibi) gösterilir
+    hataGoster(sonuc.hata);
+  } else if (new URLSearchParams(location.search).get('oturum') === 'bitti') {
+    // Başka bir sayfadayken oturum düştü, gezinme.js buraya gönderdi
+    hataGoster('Oturumunuz sona erdi. Lütfen yeniden giriş yapın.');
+  }
+}
+
+function hataGoster(metin) {
+  hataKutusu.textContent = metin;
+  hataKutusu.hidden = false;
 }
 
 form.addEventListener('submit', async (olay) => {

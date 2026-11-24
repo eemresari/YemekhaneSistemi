@@ -43,6 +43,10 @@ app.use('/api/bakiye', bakiyeRotalari);
 app.use('/api/degerlendirmeler', degerlendirmeRotalari);
 app.use('/api/yonetim', yonetimRotalari);
 
+const DB_BAGLANTI_HATALARI = new Set([
+  'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST',
+]);
+
 // Hata ara katmanı: Controller'lardan gelen bütün hatalar buraya düşer
 app.use((err, req, res, next) => {
   // Stored procedure bir iş kuralını reddetti (SIGNAL SQLSTATE '45000').
@@ -53,6 +57,11 @@ app.use((err, req, res, next) => {
   // Bozuk JSON gövdesi (express.json 400 hatası verir)
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ hata: 'İstek gövdesi geçerli JSON değil.' });
+  }
+  // Veritabanına bağlanılamadı (sunucu kapalı, ad çözülemedi, bağlantı koptu)
+  if (DB_BAGLANTI_HATALARI.has(err.code)) {
+    console.error(`Veritabanı bağlantı hatası: ${err.code}`);
+    return res.status(503).json({ hata: 'Veritabanına şu an ulaşılamıyor. Lütfen biraz sonra tekrar deneyin.' });
   }
   // Beklenmeyen hatalar: ayrıntı günlüğe yazılır, kullanıcıya genel mesaj gider
   console.error(err);

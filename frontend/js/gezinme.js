@@ -23,13 +23,33 @@ function el(etiket, sinif, metin) {
   return oge;
 }
 
+let girisYapildi = false;
+
+// api.js herhangi bir istekte 401 alınca bunu çağırır. Sayfa açıkken oturum düşmüşse
+// (süre doldu ya da uygulama yeniden başladı) kullanıcı sayfada takılı kalmaz.
+function oturumDustu() {
+  if (!girisYapildi) return;   // sayfa açılışındaki denetimi gezinmeyiKur kendisi yapar
+  location.replace('/giris.html?oturum=bitti');
+}
+
 async function gezinmeyiKur() {
   const sonuc = await apiIstek('/api/ben');
-  if (!sonuc.ok) {
-    // replace: geri tuşu kullanıcıyı korumalı sayfaya döndürmesin
+  if (sonuc.durum === 401) {
+    // Giriş yok. replace: geri tuşu kullanıcıyı korumalı sayfaya döndürmesin
     location.replace('/giris.html');
     return null;
   }
+  if (!sonuc.ok) {
+    // Sunucuya ulaşılamıyor ya da beklenmeyen hata: giriş sayfasına atmak yanıltıcı olur,
+    // mesaj sayfanın kırmızı kutusunda gösterilir
+    const hataKutusu = document.getElementById('hata');
+    hataKutusu.textContent = sonuc.hata;
+    hataKutusu.hidden = false;
+    const durum = document.getElementById('durum');
+    if (durum) durum.hidden = true;
+    return null;
+  }
+  girisYapildi = true;
   const kullanici = sonuc.veri.kullanici;
 
   const ic = el('div', 'kapsayici gezinme-ic');
