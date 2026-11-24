@@ -307,9 +307,11 @@ bağlanır (React ya da başka çerçeve yok):
 | `frontend/js/giris.js` | Sayfanın davranışı |
 | `frontend/css/giris.css` | Giriş sayfasına özgü stil (renkler `temel.css`'ten) |
 
-Sayfa açılınca `GET /api/ben` çağrılır: oturum varsa karşılama gösterilir, yoksa form (sayfa
-yenilense de oturum çerezi sayesinde giriş korunur). Form gönderilince `POST /api/giris` çağrılır;
-hata olursa sunucunun Türkçe mesajı kırmızı kutuda olduğu gibi gösterilir.
+Sayfa açılınca `GET /api/ben` çağrılır: oturum varsa karşılama ile "Menüye git" ve "Çıkış yap"
+düğmeleri gösterilir, yoksa form (sayfa yenilense de oturum çerezi sayesinde giriş korunur). Form
+gönderilince `POST /api/giris` çağrılır; başarılıysa günün menüsüne (`/menu.html`) geçilir, hata
+olursa sunucunun Türkçe mesajı kırmızı kutuda olduğu gibi gösterilir. Ana adres (`/`) giriş
+sayfasına yönlendirir.
 
 Arayüz tarafındaki kararlar:
 
@@ -336,3 +338,118 @@ Telefon genişliği (yaklaşık 400 px, tarayıcının cihaz simülasyonu): form
 kaydırma çıkmadan kullanılabiliyor:
 
 ![Giriş formu, telefon genişliği](png/p2_giris_telefon.png)
+
+## 7. Günün menüsü ve haftalık menü
+
+### API uçları
+
+Üç uç da giriş gerektirir (`rotalar/menu.js` içinde `router.use(girisGerekli)`):
+
+| Uç | Ne döner |
+|---|---|
+| `GET /api/menu/secenekler` | Süzgeçler için yemekhane ve öğün listesi |
+| `GET /api/menu/gunluk?tarih=&yemekhane=&ogun=` | Bir günün menüleri; parametrelerin hepsi isteğe bağlı, tarih verilmezse bugün |
+| `GET /api/menu/haftalik?baslangic=` | Başlangıç gününden itibaren 7 günün menüleri |
+
+Katmanların payı:
+
+- **Veri katmanı** (`veri/menuVeri.js`) · `v_menu_detay` (yemek başına bir satır) ile `v_menu_doluluk`
+  (boş yer, kapasite) view'larını birleştiren tek bir SELECT çalıştırır, satırları menü başına
+  gruplar ve toplam kaloriyi toplar. Listeleme olduğu için `okumaHavuzu` (replika) kullanılır.
+  "Bugün" ve "şu an" da veritabanından (`CURDATE()`, `NOW()`) alınır; böylece uygulama ile
+  rezervasyon yordamı aynı saati kullanır.
+- **Controller** (`controllers/menuController.js`) · girdiyi denetler (tarih `YYYY-AA-GG` biçiminde
+  ve takvimde var olan bir gün mü, kimlikler pozitif tamsayı mı) ve iki iş kuralını uygular:
+
+```js
+// Fiyat rolüne göre seçilir; öğrenci dışındakiler personel fiyatını öder (sp_rezervasyon_yap ile aynı kural)
+const fiyat = kullanici.rol === 'ogrenci' ? ogrenci_fiyati : personel_fiyati;
+
+// Rezervasyon neden kapalı? Sınır ve mesajlar sp_rezervasyon_yap ile aynıdır
+let pasifNeden = null;
+if (simdi >= menu.rezervasyon_son) {
+  pasifNeden = 'Bu menü için rezervasyon süresi doldu.';
+} else if (menu.bos_yer <= 0) {
+  pasifNeden = 'Yemekhane kapasitesi dolu.';
+}
+```
+
+Yanıtta yalnızca kullanıcının ödeyeceği `fiyat` bulunur, diğer fiyat arayüze hiç gönderilmez.
+`rezervasyon_acik` ve `pasif_neden` alanları da sunucuda hesaplanır; arayüz bu kararı vermez,
+yalnızca düğmeyi buna göre açar ya da pasif yapar.
+
+### Doğrulama (Apache üzerinden, 24.11.2026 saat 17:00)
+
+```
+> curl -s $U/menu/gunluk
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+
+> curl -s -b ogrenci "$U/menu/gunluk?tarih=2026-11-25&yemekhane=1&ogun=2"
+[{"tarih": "2026-11-25", "yemekhane": "Merkez Yemekhane", "ogun": "Öğle", "fiyat": "40.00",
+  "bos_yer": 394, "toplam_kalori": 1080, "rezervasyon_acik": true, "pasif_neden": null}]
+
+> curl -s -b personel "$U/menu/gunluk?tarih=2026-11-25&yemekhane=1&ogun=2"
+[{"tarih": "2026-11-25", "yemekhane": "Merkez Yemekhane", "ogun": "Öğle", "fiyat": "90.00",
+  "bos_yer": 394, "toplam_kalori": 1080, "rezervasyon_acik": true, "pasif_neden": null}]
+
+> curl -s -b ogrenci "$U/menu/gunluk?yemekhane=1&ogun=2"
+[{"tarih": "2026-11-24", "yemekhane": "Merkez Yemekhane", "ogun": "Öğle", "fiyat": "40.00",
+  "bos_yer": 393, "toplam_kalori": 1110, "rezervasyon_acik": false,
+  "pasif_neden": "Bu menü için rezervasyon süresi doldu."}]
+
+> curl -s -b ogrenci $U/menu/haftalik
+baslangic=2026-11-24  menu=42  gunler=2026-11-24..2026-11-30 (7 gun)  acik=36  pasif=6
+
+> curl -s -b ogrenci "$U/menu/gunluk?tarih=2026-02-30"
+{"hata":"Geçersiz tarih. Biçim: YYYY-AA-GG."}  -> HTTP 400
+
+> curl -s -b ogrenci "$U/menu/gunluk?yemekhane=abc"
+{"hata":"Geçersiz yemekhane ya da öğün."}  -> HTTP 400
+
+> curl -s -b ogrenci "$U/menu/gunluk?tarih=2026-12-05"
+{"tarih":"2026-12-05","menuler":[]}  -> HTTP 200
+```
+
+(`ogrenci` = Mehmet Yıldız, `personel` = Murat Kaya oturum çerezi. Okunabilirlik için menü
+yanıtlarından yemek listesi çıkarıldı, haftalık yanıt özetlendi.) Aynı menü öğrenciye 40 TL,
+personele 90 TL olarak dönüyor. Bugünün öğle menüsünün son saati (10:00) geçtiği için kapalı,
+yarınki açık. Haftanın 42 menüsünden yalnızca bugünün 6 menüsü kapalı. Takvimde olmayan tarih
+ve bozuk kimlik 400 ile reddediliyor; menüsü olmayan gün hata değil, boş liste.
+
+### Arayüz
+
+Giriş sonrası sayfaların hepsi ayrı HTML dosyasıdır ve aynı gezinme çubuğunu kullanır:
+
+| Dosya | Görevi |
+|---|---|
+| `frontend/js/gezinme.js` | Üst çubuk. Önce `GET /api/ben` çağrılır; giriş yoksa (401) giriş sayfasına yönlendirir, varsa bağlantıları, kullanıcı adını ve "Çıkış" düğmesini çizer |
+| `frontend/js/menuKarti.js` | Bir menüyü kart olarak çizer (öğün, fiyat, yemekler, kalori, vejetaryen ve alerjen bilgisi, toplam kalori, boş yer, son saat). İki sayfa da bunu kullanır |
+| `frontend/menu.html` + `js/menu.js` | Günün menüsü: tarih, yemekhane ve öğün süzgeci; biri değişince `GET /api/menu/gunluk` yeniden çağrılır |
+| `frontend/haftalik.html` + `js/haftalik.js` | Haftalık menü: 7 gün, güne göre gruplu; her kartın altında rezervasyon düğmesi |
+| `frontend/css/sayfa.css` | Bu sayfaların ortak stili (renkler `temel.css`'ten) |
+
+- Tarih kutusu ilk açılışta boş gönderilir; sunucu bugünü kendi saatinden seçer ve sayfa bu tarihi
+  kutuya yazar. Tarayıcının saati yanlış olsa da doğru gün gelir.
+- Fiyat arayüzde hesaplanmaz; sunucudan gelen `fiyat` yalnızca `₺40,00` biçiminde yazılır.
+- `rezervasyon_acik` false ise düğme `disabled` olur ve altında sunucunun `pasif_neden` mesajı
+  yazar (ekran okuyucular için `aria-describedby` ile düğmeye bağlıdır). Düğmenin rezervasyon isteği
+  8. bölümde bağlanacaktır.
+- Bütün metinler `textContent` ile yazılır; yemek adında HTML olsa bile çalışmaz.
+
+Günün menüsü, süzgeçler "Tümü": iki yemekhanenin üç öğünü, öğrenci fiyatıyla:
+
+![Günün menüsü](png/p2_menu_gunluk.png)
+
+Süzgeçli görünüm (Merkez Yemekhane, öğle):
+
+![Süzgeçli günün menüsü](png/p2_filtre_menu.png)
+
+Haftalık menü: bugünün kartlarında süresi dolduğu için düğme pasif ve nedeni yazıyor, yarınki
+kartlarda düğme açık:
+
+![Haftalık menü](png/p2_menu_haftalik.png)
+
+Telefon genişliği (yaklaşık 400 px): süzgeçler alt alta, kartlar tek sütun, gezinme çubuğu iki
+satıra iniyor:
+
+![Günün menüsü, telefon genişliği](png/p2_menu_telefon.png)

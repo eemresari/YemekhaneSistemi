@@ -22,3 +22,6 @@
 .alan { margin-bottom: 1rem; }
 
 .dugme.tam { width: 100%; }
+
+/* "Menüye git" bağlantısı düğme gibi görünür; altındaki çıkış düğmesinden ayrılsın */
+.menuye-git { text-align: center; margin-bottom: 0.75rem; }

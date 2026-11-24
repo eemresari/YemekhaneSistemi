@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Haftalık menü · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <h1>Haftalık menü</h1>
+
+    <form id="suzgec" class="suzgec">
+      <div>
+        <label for="baslangic">Başlangıç günü</label>
+        <input id="baslangic" name="baslangic" type="date">
+      </div>
+    </form>
+
+    <p id="durum" class="durum" role="status">Yükleniyor…</p>
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+    <div id="gunler"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/menuKarti.js"></script>
+  <script src="/js/haftalik.js"></script>
+</body>
+</html>

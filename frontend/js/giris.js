@@ -49,7 +49,7 @@ form.addEventListener('submit', async (olay) => {
   }
 
   form.reset();                        // şifre alanında kalmasın
-  oturumuGoster(sonuc.veri.kullanici);
+  location.href = '/menu.html';        // giriş başarılı: günün menüsüne geç
 });
 
 document.getElementById('cikis-dugme').addEventListener('click', async () => {

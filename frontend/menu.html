@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Günün menüsü · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <!-- gezinme.js doldurur -->
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <h1>Günün menüsü</h1>
+
+    <form id="suzgec" class="suzgec">
+      <div>
+        <label for="tarih">Tarih</label>
+        <input id="tarih" name="tarih" type="date">
+      </div>
+      <div>
+        <label for="yemekhane">Yemekhane</label>
+        <select id="yemekhane" name="yemekhane">
+          <option value="">Tümü</option>
+        </select>
+      </div>
+      <div>
+        <label for="ogun">Öğün</label>
+        <select id="ogun" name="ogun">
+          <option value="">Tümü</option>
+        </select>
+      </div>
+    </form>
+
+    <p id="durum" class="durum" role="status">Yükleniyor…</p>
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+    <div id="menuler" class="menu-liste"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/menuKarti.js"></script>
+  <script src="/js/menu.js"></script>
+</body>
+</html>

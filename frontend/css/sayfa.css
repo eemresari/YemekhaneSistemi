@@ -1,0 +1,120 @@
+/* Giriş sonrası sayfaların ortak stilleri (gezinme çubuğu, süzgeç, menü kartı).
+   Renk ve yazı değişkenleri temel.css'ten gelir. */
+
+/* hidden özniteliği, display veren sınıflara yenilmesin */
+[hidden] { display: none !important; }
+
+/* ---------- Gezinme çubuğu ---------- */
+.gezinme {
+  background: var(--ana);
+  color: #fff;
+}
+.gezinme-ic {
+  display: flex;
+  flex-wrap: wrap;               /* telefonda sığmazsa alt satıra iner */
+  align-items: center;
+  gap: 0.25rem 1rem;
+  padding-block: 0.5rem;
+}
+.gezinme-baslik { font-weight: 700; margin-right: auto; }
+.gezinme-baglantilar { display: flex; gap: 0.25rem; }
+.gezinme a {
+  color: #fff;
+  text-decoration: none;
+  padding: 0.6rem 0.75rem;       /* 44 px dokunma alanı */
+  border-radius: var(--kose);
+  display: inline-block;
+}
+.gezinme a:hover { background: var(--ana-koyu); }
+.gezinme a[aria-current="page"] { background: var(--ana-koyu); font-weight: 600; }
+.gezinme-kullanici { display: flex; align-items: center; gap: 0.5rem; font-size: var(--boyut-kucuk); }
+.gezinme .dugme-ince {
+  min-height: 36px;
+  padding: 0.3rem 0.75rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.gezinme .dugme-ince:hover { background: var(--ana-koyu); }
+
+/* ---------- Sayfa gövdesi ---------- */
+.sayfa { padding-block: 1.5rem; }
+
+/* Süzgeç: telefonda alt alta, genişte yan yana */
+.suzgec {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.durum { color: var(--metin-soluk); }
+
+/* ---------- Menü kartları ---------- */
+.menu-liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.menu-kart {
+  background: var(--yuzey);
+  border-radius: var(--kose);
+  border-top: 4px solid var(--ana);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+.menu-kart-ust {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.menu-kart h2 { margin: 0; }
+.menu-kart-yemekhane { color: var(--metin-soluk); font-size: var(--boyut-kucuk); margin: 0 0 0.75rem; }
+.fiyat {
+  background: var(--vurgu);
+  color: var(--metin);
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--kose);
+  white-space: nowrap;
+}
+
+.yemekler { list-style: none; margin: 0 0 0.75rem; padding: 0; }
+.yemekler li { padding: 0.4rem 0; border-bottom: 1px dashed var(--cizgi); }
+.yemek-satir { display: flex; justify-content: space-between; gap: 0.5rem; }
+.yemek-ad { font-weight: 600; }
+.yemek-kalori { color: var(--metin-soluk); font-size: var(--boyut-kucuk); white-space: nowrap; }
+.yemek-ek { font-size: var(--boyut-kucuk); color: var(--metin-soluk); }
+.etiket {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  margin-right: 0.25rem;
+}
+.etiket-vejetaryen { background: var(--basari-zemin); color: var(--basari); }
+
+.menu-kart-alt {
+  margin-top: auto;              /* kart boyları farklı olsa da alt bilgi dipte dursun */
+  font-size: var(--boyut-kucuk);
+  color: var(--metin-soluk);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+.menu-kart-alt strong { color: var(--metin); }
+
+/* ---------- Haftalık sayfa ---------- */
+.gun { margin-bottom: 2rem; }
+.gun-baslik {
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid var(--cizgi);
+}
+.rezervasyon-alan { margin-top: 0.75rem; }
+.pasif-neden {
+  margin: 0.4rem 0 0;
+  font-size: var(--boyut-kucuk);
+  color: var(--hata);
+}
