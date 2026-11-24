@@ -618,3 +618,116 @@ Telefon genişliği (yaklaşık 400 px):
 ![Rezervasyonlarım, telefon genişliği](png/p2_rezervasyonlarim_telefon.png)
 
 Para, saat ve gün biçimleri üç sayfanın ortak kullandığı `js/bicim.js`'e taşındı.
+
+## 9. Bakiye ve değerlendirme
+
+### Bakiye
+
+| Uç | Sunucu | Ne yapar |
+|---|---|---|
+| `GET /api/bakiye` | Replika | Güncel bakiye ve son 100 hareket; rezervasyon/iade hareketlerinde menünün tarihi, öğünü, yemekhanesi |
+| `POST /api/bakiye/yukle` (gövde `{"tutar": 100}`) | Kaynak | `sp_bakiye_yukle` çağırır; `hareket_id`, `bakiye` döner |
+
+Controller tutarın yalnızca **biçimini** denetler (sayı mı, pozitif mi, en fazla iki ondalıklı mı).
+"Tek seferde 10–1000 TL" kuralı Controller'da tekrar yazılmaz; yordamın kuralı ve Türkçe mesajı
+kullanılır. Böylece kural tek yerde durur.
+
+```
+> giriş yok, GET /bakiye
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+> mehmet, GET /bakiye (özet)
+bakiye = 315.00 | hareket sayısı = 21 | hareketlerin toplamı = 315.00
+> mehmet, 100 TL yükle
+{"hareket_id":462,"bakiye":"415.00"}  -> HTTP 201
+> mehmet, 5 TL yükle
+{"hata":"Yükleme tutarı 10 ile 1000 TL arasında olmalıdır."}  -> HTTP 409
+> mehmet, 1500 TL yükle
+{"hata":"Yükleme tutarı 10 ile 1000 TL arasında olmalıdır."}  -> HTTP 409
+> mehmet, 12.555 TL yükle
+{"hata":"Geçersiz tutar."}  -> HTTP 400
+> mehmet, "100" (metin)
+{"hata":"Geçersiz tutar."}  -> HTTP 400
+> mehmet, -50 TL yükle
+{"hata":"Geçersiz tutar."}  -> HTTP 400
+```
+
+Hareketlerin toplamı bakiyeye eşittir (şemadaki `kullanicilar.bakiye = SUM(bakiye_hareketleri.tutar)`
+kuralı). Bakiye ekranında (`bakiye.html`, `js/bakiye.js`) yüklemeden sonra bakiye yordamın kaynakta
+hesapladığı değerle güncellenir ve yeni hareket tablonun başına "Az önce" olarak eklenir; liste,
+8. bölümde anlatılan replikasyon gecikmesi nedeniyle replikadan yeniden çekilmez.
+
+![Bakiye yükleme](png/p2_bakiye.png)
+
+Yordamın reddettiği tutar:
+
+![Bakiye yükleme hatası](png/p2_bakiye_hata.png)
+
+![Bakiye, telefon genişliği](png/p2_bakiye_telefon.png)
+
+### Değerlendirme
+
+| Uç | Sunucu | Ne yapar |
+|---|---|---|
+| `GET /api/degerlendirmeler` | Replika | Kullanıcının **kullanılmış** rezervasyonlarının menüleri ve varsa verdiği puan/yorum |
+| `POST /api/degerlendirmeler` (gövde `{"menu_id": 5, "puan": 4, "yorum": "..."}`) | Kaynak | Değerlendirmeyi kaydeder |
+
+Bu iş için stored procedure yoktur; şema "*Yalnızca kullanılmış menü değerlendirilir kuralı
+uygulamaya aittir*" der. Kural `controllers/degerlendirmeController.js` içinde uygulanır:
+
+```js
+// İş kuralı: yalnızca kullanılmış (turnikeden geçilmiş) menü değerlendirilir
+if (!(await degerlendirmeVeri.menuyuKullandiMi(kullaniciId, menuId))) {
+  return res.status(403).json({ hata: 'Yalnızca kullandığınız menüleri değerlendirebilirsiniz.' });
+}
+const id = await degerlendirmeVeri.degerlendirmeEkle(kullaniciId, menuId, puan, temizYorum);
+if (id === null) {
+  return res.status(409).json({ hata: 'Bu menüyü zaten değerlendirdiniz.' });
+}
+```
+
+- **Kontrol için yapılan okuma kaynaktandır.** `menuyuKullandiMi` bir SELECT olsa da bir yazma
+  kararının dayanağıdır; turnikeden yeni geçmiş bir kullanıcının rezervasyonu replikada henüz
+  `kullanildi` olmayabilir ve kullanıcı haksız yere reddedilirdi. Bu yüzden `yazmaHavuzu` kullanır.
+  Ekrandaki liste ise replikadan okunur.
+- Puan 1–5 ve "kişi başına menü başına tek oy" veritabanında da güvence altındadır (`CHECK`,
+  `UNIQUE`). İkinci oyda gelen `ER_DUP_ENTRY` hatası veri katmanında yakalanıp `null`'a çevrilir;
+  MySQL'e özgü hata kodu Controller'a sızmaz.
+- Puan, yorum uzunluğu (en fazla 500 karakter, `VARCHAR(500)`) Controller'da denetlenir; arayüz bu
+  sınırları tekrar yazmaz, sunucunun mesajını gösterir.
+
+```
+> giriş yok, GET /degerlendirmeler
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+> menü 5 (kullanıldı), 4 puan + yorum
+{"menu_id":5,"puan":4,"yorum":"Karnıyarık çok iyiydi."}  -> HTTP 201
+> menü 5 tekrar
+{"hata":"Bu menüyü zaten değerlendirdiniz."}  -> HTTP 409
+> menü 32 (önceden 2 puan verilmiş)
+{"hata":"Bu menüyü zaten değerlendirdiniz."}  -> HTTP 409
+> menü 50 (rezervasyon aktif, kullanılmadı)
+{"hata":"Yalnızca kullandığınız menüleri değerlendirebilirsiniz."}  -> HTTP 403
+> menü 1 (rezervasyonu yok)
+{"hata":"Yalnızca kullandığınız menüleri değerlendirebilirsiniz."}  -> HTTP 403
+> puan 6
+{"hata":"Puan 1 ile 5 arasında bir tamsayı olmalıdır."}  -> HTTP 400
+> puan 3.5
+{"hata":"Puan 1 ile 5 arasında bir tamsayı olmalıdır."}  -> HTTP 400
+> yorum 501 karakter
+{"hata":"Yorum en fazla 500 karakter olabilir."}  -> HTTP 400
+```
+
+Kayıt replikaya geçti ve menünün ortalaması `v_menu_puan` view'ına yansıdı
+(menü 5: `oy_sayisi 2, ortalama_puan 3.50`).
+
+Değerlendirme ekranında (`degerlendirme.html`, `js/degerlendirme.js`) kullanılmış her menü bir kart
+olarak görünür; değerlendirilmişse yıldızlar ve yorum, değilse yıldız seçici ve yorum kutusu. Yıldızlar
+gizlenmiş radio düğmeleridir; fareyle ya da klavyeyle (Tab, ok tuşları) seçilebilir ve ekran okuyucu
+"5 üzerinden 4 puan" diye okur.
+
+![Değerlendirme formu](png/p2_degerlendirme.png)
+
+Gönderildikten sonra form, kaydedilen puan ve yorumla yer değiştirir:
+
+![Değerlendirme kaydedildi](png/p2_degerlendirme_kaydedildi.png)
+
+![Değerlendirme, telefon genişliği](png/p2_degerlendirme_telefon.png)

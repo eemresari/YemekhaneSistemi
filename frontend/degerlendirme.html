@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Değerlendirme · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <h1>Değerlendirme</h1>
+    <p class="durum">Kullandığınız menülere 1–5 arası puan ve yorum verebilirsiniz.</p>
+
+    <p id="durum" class="durum" role="status">Yükleniyor…</p>
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+    <div id="liste" class="deg-liste"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/bicim.js"></script>
+  <script src="/js/degerlendirme.js"></script>
+</body>
+</html>

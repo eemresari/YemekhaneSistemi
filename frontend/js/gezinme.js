@@ -6,6 +6,7 @@ const SAYFALAR = [
   { adres: '/haftalik.html', ad: 'Haftalık' },
   { adres: '/rezervasyonlarim.html', ad: 'Rezervasyonlarım' },
   { adres: '/bakiye.html', ad: 'Bakiye' },
+  { adres: '/degerlendirme.html', ad: 'Değerlendirme' },
 ];
 
 // Kısa yardımcı: etiket oluşturur, metni textContent ile yazar (HTML olarak yorumlanmaz)
