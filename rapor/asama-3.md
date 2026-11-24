@@ -282,3 +282,87 @@ gibi diziler Türkçe harflerin UTF-8 baytlarıdır; `redis-cli` böyle gösteri
 ```
 
 ![Redis'teki menü kaydı](png/p3_menu_onbellek_redis.png)
+
+## 4. Önbelleğin geçersizleştirilmesi
+
+Ödevin kuralı: menü kaydı "yönetici o menüyü değiştirdiğinde" silinir. Yönetici paneli menüyü iki
+yerde değiştirir: mevcut menünün düzenlenmesi (`menuGuncelle`) ve yeni menü eklenmesi
+(`menuOlustur`). Yeni menü de önbelleği ilgilendirir, çünkü o gün için önbellekte "menü yok"
+(`null`) kaydı durabilir (3. bölüm).
+
+`uygulama/veri/yonetimVeri.js`:
+
+```js
+// Transaction COMMIT edildikten SONRA çalışır.
+// 1. Eski kayıt silinir.
+// 2. Yeni içerik KAYNAKTAN okunup yazılır.
+async function menuOnbelleginiYenile({ yemekhaneId, tarih, ogunId }) {
+  const anahtar = menuOnbellek.anahtar(yemekhaneId, tarih, ogunId);
+  const silinen = await menuOnbellek.sil(anahtar);
+  const [icerikler, gunSonu] = await Promise.all([
+    menuIcerikleriGetir(yazmaHavuzu, { baslangic: tarih, yemekhaneId, ogunId }),
+    gunSonuZamani(),
+  ]);
+  await menuOnbellek.uzerineYaz(anahtar, icerikler.get(anahtar) ?? null, gunSonu);
+  console.log(`Menü önbelleği: ${anahtar} → eski kayıt silindi (DEL ${silinen}), `
+    + 'yeni içerik kaynaktan yazıldı');
+}
+```
+
+`menuGuncelle` ve `menuOlustur`, transaction başarıyla bittikten sonra bu fonksiyonu çağırır.
+`menuGuncelle`, önbellek anahtarı için gereken yemekhane, tarih ve öğünü aynı transaction
+içinde menü satırından okur.
+
+### Neden bu sıra ve neden kaynaktan?
+
+| Karar | Olmasaydı ne olurdu? |
+|---|---|
+| Silme **commit'ten sonra** | Commit'ten önce silinseydi, arada gelen bir okuma veritabanındaki eski menüyü yeniden önbelleğe yazardı. |
+| Yeni içerik **kaynaktan** (`yazmaHavuzu`) okunur | Okuma replikaya gitseydi ve replika değişikliği henüz almamış olsaydı (replikasyon gecikmesi), eski menü yeniden önbelleğe girer ve gece yarısına kadar kalırdı. |
+| Yönetici **üzerine yazar** (`SET`), okuyan istek yalnızca **boşsa** yazar (`SET NX`) | Silmeyle yeniden yazma arasında replikadan eski menüyü okumuş bir istek, yöneticinin yazdığı yeni içeriği ezemez. Okuyan istek önce yazmışsa yönetici onu ezer. Her iki sırada da önbellekte yeni menü kalır. |
+| Önce `DEL`, sonra `SET` | Kaynaktan okuma bir hata verirse önbellekte eski menü kalmaz; sonraki istek veritabanından okur. |
+
+Önbellek yenilenemezse (örneğin Redis kapalıysa) veritabanındaki değişiklik geri alınmaz;
+istek başarılı döner ve hata günlüğe yazılır. Değişiklik veritabanına kalıcı olarak yazılmıştır,
+yöneticiye "kaydedilmedi" demek yanlış olurdu.
+
+### Doğrulama
+
+**Menü güncelleme.** Yönetici (Leyla Arslan) olarak 1 Aralık Merkez Yemekhane öğle menüsü önce
+okundu (önbelleğe girdi), sonra fiyatları 45 / 95 TL'den 40 / 90 TL'ye çekildi. Redis'teki kayıt
+yeni fiyatı gösterir; günlükte eski kaydın silindiği (`DEL 1`) ve yeni içeriğin kaynaktan yazıldığı
+görünür.
+
+```
+> curl -s -c /tmp/y.txt -H 'Content-Type: application/json' \
+    -d '{"eposta":"leyla.arslan@kampus.edu.tr","sifre":"Yemek2026!"}' localhost:8080/api/giris
+> curl -s -b /tmp/y.txt 'localhost:8080/api/menu/gunluk?tarih=2026-12-01&yemekhane=1&ogun=2' >/dev/null
+> docker compose exec redis redis-cli GET menu:1:2026-12-01:2 | grep -o 'ogrenci_fiyati[^,]*,[^,]*'
+> curl -s -b /tmp/y.txt -X PUT -H 'Content-Type: application/json' \
+    -d '{"ogrenci_fiyati":40,"personel_fiyati":90,"yemekler":[1,14,23,30]}' localhost:8080/api/yonetim/menuler/85
+> docker compose exec redis redis-cli GET menu:1:2026-12-01:2 | grep -o 'ogrenci_fiyati[^,]*,[^,]*'
+> docker compose logs --tail 3 uygulama
+```
+
+![Menü güncellenince önbellek kaydı yenileniyor](png/p3_onbellek_gecersiz.png)
+
+**Arayüz yeni menüyü gösteriyor.** Öğrenci (Mehmet Yıldız) olarak Günün menüsü sayfasında 1 Aralık
+seçildi: öğle menüsü yeni öğrenci fiyatıyla (₺40,00) görünür.
+
+![Arayüzde yeni fiyat](png/p3_onbellek_arayuz.png)
+
+**Yeni menü ekleme.** 3 Aralık Merkez Yemekhane öğle için menü yokken günün menüsü istendi;
+önbelleğe `null` yazıldı. Yönetici bu güne menü ekledi (`POST /api/yonetim/menuler`, menü 90).
+Günlükte aynı satır (`eski kayıt silindi (DEL 1), yeni içerik kaynaktan yazıldı`) göründü,
+Redis'teki değer `null`'dan yeni menüye döndü ve API bir sonraki istekte menüyü Redis'ten verdi.
+
+## Özet
+
+| Ödevin istediği | Nerede |
+|---|---|
+| Menü önbelleği `menu:{yemekhane_id}:{tarih}:{ogun_id}`, o günün sonuna kadar | 3. bölüm (`EXAT` gece yarısı) |
+| Yönetici menüyü değiştirince silinir | 4. bölüm (`DEL` + kaynaktan yeniden yazma) |
+| Oturum `oturum:{token}`, 30 dk, her istekte yenilenir, çıkışta silinir | 2. bölüm |
+| İlk istek veritabanından, ikincisi Redis'ten (uygulama günlüğü) | 3. bölüm, `p3_menu_onbellek_gunluk.png` |
+| Menü güncellenince eski kayıt siliniyor, arayüz yeni menüyü gösteriyor | 4. bölüm |
+| Uygulama container'ı yeniden başlasa da oturum düşmüyor | 2. bölüm, `p3_oturum_restart.png` |

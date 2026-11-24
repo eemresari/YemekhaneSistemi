@@ -1,4 +1,6 @@
 const { yazmaHavuzu, okumaHavuzu } = require('./baglanti');
+const menuOnbellek = require('./menuOnbellek');
+const { menuIcerikleriGetir, gunSonuZamani } = require('./menuVeri');
 
 // ---- Okumalar ----------------------------------------------------------------
 
@@ -90,10 +92,41 @@ function hataSonucu(err) {
   throw err;
 }
 
+// ---- Menü önbelleğinin geçersizleştirilmesi ----------------------------------
+
+// Yönetici bir menüyü değiştirdiğinde (ya da o güne yeni menü eklediğinde) çağrılır.
+// Transaction COMMIT edildikten SONRA çalışır: önce çalışsaydı, commit'ten önce gelen bir
+// okuma eski menüyü yeniden önbelleğe yazabilirdi.
+// 1. Eski kayıt silinir.
+// 2. Yeni içerik KAYNAKTAN okunup yazılır. Replikadan okunsaydı, replika değişikliği henüz
+//    almamışsa eski menü yeniden önbelleğe girer ve gece yarısına kadar kalırdı.
+async function menuOnbelleginiYenile({ yemekhaneId, tarih, ogunId }) {
+  const anahtar = menuOnbellek.anahtar(yemekhaneId, tarih, ogunId);
+  const silinen = await menuOnbellek.sil(anahtar);
+  const [icerikler, gunSonu] = await Promise.all([
+    menuIcerikleriGetir(yazmaHavuzu, { baslangic: tarih, yemekhaneId, ogunId }),
+    gunSonuZamani(),
+  ]);
+  await menuOnbellek.uzerineYaz(anahtar, icerikler.get(anahtar) ?? null, gunSonu);
+  console.log(`Menü önbelleği: ${anahtar} → eski kayıt silindi (DEL ${silinen}), `
+    + 'yeni içerik kaynaktan yazıldı');
+}
+
+// Önbellek yenilenemezse (Redis kapalı vb.) veritabanındaki değişiklik geri alınmaz;
+// yönetici "kaydedilmedi" sanmasın diye istek başarılı döner, hata günlüğe yazılır.
+async function onbellegiYenileHataYutarak(konum) {
+  try {
+    await menuOnbelleginiYenile(konum);
+  } catch (err) {
+    console.error(`Menü önbelleği yenilenemedi: ${err.message}`);
+  }
+}
+
 // Yeni menü: menü satırı ve yemekleri birlikte; biri başarısızsa hiçbiri kalmaz.
 async function menuOlustur({ yemekhaneId, tarih, ogunId, ogrenciFiyati, personelFiyati, yemekIdleri }) {
+  let menuId;
   try {
-    const menuId = await transactionIcinde(async (baglanti) => {
+    menuId = await transactionIcinde(async (baglanti) => {
       const [sonuc] = await baglanti.execute(
         `INSERT INTO menuler (yemekhane_id, tarih, ogun_id, ogrenci_fiyati, personel_fiyati)
          VALUES (?, ?, ?, ?, ?)`,
@@ -102,28 +135,37 @@ async function menuOlustur({ yemekhaneId, tarih, ogunId, ogrenciFiyati, personel
       await yemekleriEkle(baglanti, sonuc.insertId, yemekIdleri);
       return sonuc.insertId;
     });
-    return { menuId };
   } catch (err) {
     return hataSonucu(err);
   }
+  // O gün için önbellekte "menü yok" (null) kaydı olabilir: yenisiyle değiştirilir.
+  await onbellegiYenileHataYutarak({ yemekhaneId, tarih, ogunId });
+  return { menuId };
 }
 
 // Menü düzenleme: fiyatlar ve yemek listesi. Yemekhane, tarih ve öğün değişmez.
-// (Aşama 3: menü önbelleği burada, başarılı güncellemeden sonra silinecek.)
 async function menuGuncelle(menuId, { ogrenciFiyati, personelFiyati, yemekIdleri }) {
+  let konum;
   try {
-    await transactionIcinde(async (baglanti) => {
+    konum = await transactionIcinde(async (baglanti) => {
       await baglanti.execute(
         'UPDATE menuler SET ogrenci_fiyati = ?, personel_fiyati = ? WHERE id = ?',
         [ogrenciFiyati, personelFiyati, menuId]
       );
       await baglanti.execute('DELETE FROM menu_yemekleri WHERE menu_id = ?', [menuId]);
       await yemekleriEkle(baglanti, menuId, yemekIdleri);
+      // Önbellek anahtarı için menünün yemekhanesi, tarihi ve öğünü
+      const [[m]] = await baglanti.execute(
+        'SELECT yemekhane_id AS yemekhaneId, tarih, ogun_id AS ogunId FROM menuler WHERE id = ?',
+        [menuId]
+      );
+      return m;
     });
-    return { menuId };
   } catch (err) {
     return hataSonucu(err);
   }
+  await onbellegiYenileHataYutarak(konum);
+  return { menuId };
 }
 
 module.exports = { menuRaporu, yemekKatalogu, menuGetir, menuOlustur, menuGuncelle };

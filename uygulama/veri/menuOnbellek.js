@@ -33,6 +33,19 @@ async function bosaYaz(anahtar, icerik, silinmeZamani) {
   });
 }
 
+// Yönetici menüyü değiştirdiğinde eski kayıt silinir. Dönüş: silinen anahtar sayısı (0 ya da 1).
+async function sil(anahtar) {
+  return redis.del(anahtar);
+}
+
+// Yöneticinin değişikliğinden sonra KAYNAKTAN okunan yeni içerik yazılır.
+// NX yok: varsa, arada replikadan eski içeriği okuyup yazmış bir isteğin kaydını ezer.
+async function uzerineYaz(anahtar, icerik, silinmeZamani) {
+  await redis.set(anahtar, JSON.stringify(icerik), {
+    expiration: { type: 'EXAT', value: silinmeZamani },
+  });
+}
+
 // Uygulama günlüğüne her istek için tek satır: kaç anahtar Redis'ten, kaç anahtar veritabanından?
 function gunlugeYaz(anahtarlar, eksikler) {
   if (anahtarlar.length === 1) {
@@ -44,4 +57,4 @@ function gunlugeYaz(anahtarlar, eksikler) {
   }
 }
 
-module.exports = { anahtar, oku, bosaYaz, gunlugeYaz };
+module.exports = { anahtar, oku, bosaYaz, sil, uzerineYaz, gunlugeYaz };

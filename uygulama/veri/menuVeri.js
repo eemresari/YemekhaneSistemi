@@ -162,4 +162,4 @@ function menuleriGrupla(satirlar) {
   return [...menuler.values()];
 }
 
-module.exports = { sunucuZamani, secenekleriGetir, menulerGetir, menuIcerikleriGetir };
+module.exports = { sunucuZamani, secenekleriGetir, menulerGetir, menuIcerikleriGetir, gunSonuZamani };
