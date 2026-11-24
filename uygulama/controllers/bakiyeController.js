@@ -1,4 +1,5 @@
 const bakiyeVeri = require('../veri/bakiyeVeri');
+const { gecerliTutar } = require('./denetim');
 
 // GET /api/bakiye
 async function ozet(req, res) {
@@ -17,7 +18,7 @@ async function yukle(req, res) {
 
   // Yalnızca biçim denetlenir: pozitif, en fazla iki ondalıklı bir sayı mı?
   // 10–1000 TL sınırı burada tekrar yazılmaz; sp_bakiye_yukle'nin kuralı ve mesajı kullanılır.
-  if (typeof tutar !== 'number' || !/^\d+(\.\d{1,2})?$/.test(String(tutar))) {
+  if (!gecerliTutar(tutar)) {
     return res.status(400).json({ hata: 'Geçersiz tutar.' });
   }
 

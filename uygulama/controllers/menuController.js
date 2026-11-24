@@ -1,23 +1,8 @@
 const menuVeri = require('../veri/menuVeri');
+const { gecerliTarihMi, kimlikOku } = require('./denetim');
 
 // Controller SQL içermez: veriyi veri katmanından ister, iş kurallarını uygular
 // (rolüne göre fiyat, rezervasyon açık mı) ve yanıtı hazırlar.
-
-// ---- Girdi denetimi -------------------------------------------------------
-
-// '2026-11-24' biçiminde ve takvimde gerçekten var olan bir gün mü? ('2026-02-30' geçersiz)
-function gecerliTarihMi(metin) {
-  if (typeof metin !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(metin)) return false;
-  const gun = new Date(`${metin}T00:00:00Z`);
-  return !Number.isNaN(gun.getTime()) && gun.toISOString().slice(0, 10) === metin;
-}
-
-// İsteğe bağlı sayı parametresi: yoksa null, geçerli pozitif tamsayıysa sayı, bozuksa hata.
-function kimlikOku(deger) {
-  if (deger === undefined) return { deger: null };
-  if (typeof deger !== 'string' || !/^\d+$/.test(deger) || Number(deger) < 1) return { hata: true };
-  return { deger: Number(deger) };
-}
 
 // ---- İş kuralları ---------------------------------------------------------
 

@@ -1,10 +1,6 @@
 const rezervasyonVeri = require('../veri/rezervasyonVeri');
 const menuVeri = require('../veri/menuVeri');
-
-// Pozitif tamsayı mı? (JSON gövdesinden gelen kimlikler için)
-function gecerliKimlik(deger) {
-  return Number.isInteger(deger) && deger > 0;
-}
+const { gecerliKimlik, kimlikOku } = require('./denetim');
 
 // GET /api/rezervasyonlar
 async function liste(req, res) {
@@ -37,14 +33,14 @@ async function yap(req, res) {
 
 // POST /api/rezervasyonlar/:id/iptal
 async function iptal(req, res) {
-  const id = req.params.id;
-  if (!/^\d+$/.test(id) || Number(id) < 1) {
+  const id = kimlikOku(req.params.id);
+  if (id.hata) {
     return res.status(400).json({ hata: 'Geçersiz rezervasyon.' });
   }
 
   // Rezervasyonun bu kullanıcıya ait olup olmadığını yordam denetler;
   // başkasınınki "Rezervasyon bulunamadı." döner (bilgi sızdırmamak için).
-  const sonuc = await rezervasyonVeri.rezervasyonIptal(req.session.kullanici.id, Number(id));
+  const sonuc = await rezervasyonVeri.rezervasyonIptal(req.session.kullanici.id, id.deger);
   res.json(sonuc);
 }
 

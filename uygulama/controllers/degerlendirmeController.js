@@ -1,4 +1,5 @@
 const degerlendirmeVeri = require('../veri/degerlendirmeVeri');
+const { gecerliKimlik } = require('./denetim');
 
 // Bu ekranın iş kuralı için yordam yoktur; şemanın notu: "Yalnızca kullanılmış menü
 // değerlendirilir kuralı uygulamaya aittir." Kural bu Controller'da uygulanır.
@@ -16,7 +17,7 @@ async function kaydet(req, res) {
   const { menu_id: menuId, puan, yorum } = req.body ?? {};
 
   // ---- Girdi denetimi
-  if (!Number.isInteger(menuId) || menuId < 1) {
+  if (!gecerliKimlik(menuId)) {
     return res.status(400).json({ hata: 'Geçersiz menü.' });
   }
   if (!Number.isInteger(puan) || puan < 1 || puan > 5) {
