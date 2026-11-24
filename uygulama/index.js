@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const { RedisStore } = require('connect-redis');
 const oturumRotalari = require('./rotalar/oturum');
 const menuRotalari = require('./rotalar/menu');
 const rezervasyonRotalari = require('./rotalar/rezervasyon');
@@ -18,17 +19,25 @@ if (!process.env.OTURUM_SIRRI) {
 // İstek gövdesindeki JSON'u req.body'ye çevirir
 app.use(express.json());
 
-// Oturum: tarayıcıya yalnızca imzalı bir kimlik çerezi gider, bilgiler sunucuda durur.
-// Şimdilik bellekte tutulur; Aşama 3'te Redis'e taşınacak.
+// Oturum: tarayıcıya yalnızca imzalı bir kimlik çerezi (token) gider, bilgiler Redis'te durur.
+// Anahtar: oturum:{token}. Uygulama container'ı yeniden başlasa da oturum düşmez.
+const OTURUM_SURESI_SN = 30 * 60;     // 30 dakika
+
 app.use(session({
   name: 'yemekhane.sid',
+  store: new RedisStore({
+    client: redis,
+    prefix: 'oturum:',                // Redis'teki anahtarın öneki
+    ttl: OTURUM_SURESI_SN,
+  }),
   secret: process.env.OTURUM_SIRRI,   // çerezi imzalamak için
-  resave: false,                      // değişmeyen oturumu yeniden kaydetme
+  resave: false,                      // değişmeyen oturumu yeniden yazma, yalnızca süresini uzat (touch)
   saveUninitialized: false,           // giriş yapmayana boş oturum açma
+  rolling: true,                      // her istekte süre baştan başlar (çerez ve Redis anahtarı)
   cookie: {
     httpOnly: true,                   // JavaScript çerezi okuyamaz
     sameSite: 'lax',                  // başka sitelerden gelen isteklerde gönderilmez
-    maxAge: 2 * 60 * 60 * 1000,       // 2 saat
+    maxAge: OTURUM_SURESI_SN * 1000,  // milisaniye
   },
 }));
 
