@@ -113,8 +113,9 @@
   border-bottom: 2px solid var(--cizgi);
 }
 .rezervasyon-alan { margin-top: 0.75rem; }
-.pasif-neden {
+.kart-mesaj {
   margin: 0.4rem 0 0;
   font-size: var(--boyut-kucuk);
-  color: var(--hata);
 }
+.kart-mesaj-hata   { color: var(--hata); }
+.kart-mesaj-basari { color: var(--basari); font-weight: 600; }

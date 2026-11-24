@@ -21,20 +21,26 @@ async function secenekleriGetir() {
 // 'baslangic' gününden başlayarak 'gunSayisi' günlük menüleri getirir.
 // Günün menüsü için gunSayisi = 1, haftalık menü için 7.
 // yemekhaneId / ogunId verilirse yalnızca o yemekhane / öğün gelir (null = hepsi).
-async function menulerGetir({ baslangic, gunSayisi = 1, yemekhaneId = null, ogunId = null }) {
+// kullaniciId: o kullanıcının bu menüde geçerli (aktif ya da kullanılmış) rezervasyonu var mı?
+async function menulerGetir({ kullaniciId, baslangic, gunSayisi = 1, yemekhaneId = null, ogunId = null }) {
   const [satirlar] = await okumaHavuzu.execute(
     `SELECT d.menu_id, d.tarih, d.yemekhane_id, d.yemekhane, d.ogun_id, d.ogun,
             d.rezervasyon_son, d.ogrenci_fiyati, d.personel_fiyati,
             d.yemek_id, d.yemek, d.kategori, d.kalori, d.vejetaryen, d.alerjenler,
-            o.kapasite, o.bos_yer
+            o.kapasite, o.bos_yer,
+            r.id AS rezervasyon_id
        FROM v_menu_detay d
        JOIN v_menu_doluluk o ON o.menu_id = d.menu_id
+       LEFT JOIN rezervasyonlar r          -- kişi başına menü başına tek kayıt: satır çoğalmaz
+              ON r.menu_id = d.menu_id
+             AND r.kullanici_id = ?
+             AND r.durum IN ('aktif', 'kullanildi')
       WHERE d.tarih >= ?
         AND d.tarih < DATE_ADD(?, INTERVAL ? DAY)
         AND (? IS NULL OR d.yemekhane_id = ?)
         AND (? IS NULL OR d.ogun_id = ?)
       ORDER BY d.tarih, d.yemekhane_id, d.ogun_sira, d.kategori_sira, d.yemek`,
-    [baslangic, baslangic, gunSayisi, yemekhaneId, yemekhaneId, ogunId, ogunId]
+    [kullaniciId, baslangic, baslangic, gunSayisi, yemekhaneId, yemekhaneId, ogunId, ogunId]
   );
   return menuleriGrupla(satirlar);
 }
@@ -57,6 +63,7 @@ function menuleriGrupla(satirlar) {
         personel_fiyati: s.personel_fiyati,
         kapasite: s.kapasite,
         bos_yer: s.bos_yer,
+        rezervasyonum: s.rezervasyon_id !== null,
         toplam_kalori: 0,
         yemekler: [],
       });

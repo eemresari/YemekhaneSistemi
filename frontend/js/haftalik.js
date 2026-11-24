@@ -15,23 +15,65 @@ function gunBasligi(tarih) {
   return `${gunAdi}, ${gunAy}`;
 }
 
-// Menü kartının altına rezervasyon düğmesi ekler
+// Kartın altındaki mesaj satırına yazar: tur 'hata' (kırmızı) ya da 'basari' (yeşil)
+function mesajYaz(mesaj, tur, metin) {
+  mesaj.className = `kart-mesaj kart-mesaj-${tur}`;
+  mesaj.textContent = metin;
+  mesaj.hidden = false;
+}
+
+// Düğmeyi "Rezervasyonunuz var" durumuna getirir
+function rezerveliYap(dugme) {
+  dugme.textContent = 'Rezervasyonunuz var';
+  dugme.disabled = true;
+}
+
+// Menü kartının altına rezervasyon düğmesi ve mesaj satırı ekler
 function rezervasyonluKart(menu) {
   const kart = menuKartiOlustur(menu);
   const alan = el('div', 'rezervasyon-alan');
 
-  const dugme = el('button', 'dugme tam', 'Rezervasyon yap');
+  const dugme = el('button', 'dugme', 'Rezervasyon yap');
   dugme.type = 'button';
-  dugme.dataset.menuId = menu.menu_id;   // Adım 6'da tıklanınca bu menü için istek gidecek
-  alan.append(dugme);
+  const mesaj = el('p', 'kart-mesaj');
+  mesaj.id = `mesaj-${menu.menu_id}`;
+  mesaj.setAttribute('role', 'status');
+  mesaj.hidden = true;
+  dugme.setAttribute('aria-describedby', mesaj.id);   // ekran okuyucu mesajı da okusun
+  alan.append(dugme, mesaj);
 
-  if (!menu.rezervasyon_acik) {
+  // Açık mı, kapalı mı, neden? Kararı sunucu verdi; burada yalnızca gösterilir.
+  if (menu.rezervasyonum) {
+    rezerveliYap(dugme);
+  } else if (!menu.rezervasyon_acik) {
     dugme.disabled = true;
-    const neden = el('p', 'pasif-neden', menu.pasif_neden);
-    neden.id = `neden-${menu.menu_id}`;
-    dugme.setAttribute('aria-describedby', neden.id);   // ekran okuyucu nedeni de okusun
-    alan.append(neden);
+    mesajYaz(mesaj, 'hata', menu.pasif_neden);
   }
+
+  dugme.addEventListener('click', async () => {
+    dugme.disabled = true;               // çift tıklamayla iki istek gitmesin
+    mesaj.hidden = true;
+
+    const sonuc = await apiIstek('/api/rezervasyonlar', {
+      yontem: 'POST',
+      govde: { menu_id: menu.menu_id },
+    });
+
+    if (!sonuc.ok) {
+      // Yordamın Türkçe mesajı olduğu gibi gösterilir ("Bakiye yetersiz." gibi)
+      mesajYaz(mesaj, 'hata', sonuc.hata);
+      dugme.disabled = false;
+      return;
+    }
+
+    // Liste yeniden çekilmez, yalnızca bu kart güncellenir: liste replikadan okunur ve
+    // rezervasyon replikaya henüz ulaşmamış olabilir (replikasyon gecikmesi).
+    // Gösterilen bakiye yordamın kaynakta hesapladığı değerdir.
+    rezerveliYap(dugme);
+    const { ucret, bakiye } = sonuc.veri;
+    mesajYaz(mesaj, 'basari',
+      `Rezervasyon yapıldı. Ücret ${paraBicimi(ucret)} · Kalan bakiye ${paraBicimi(bakiye)}`);
+  });
 
   kart.append(alan);
   return kart;

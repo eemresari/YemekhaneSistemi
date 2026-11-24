@@ -30,9 +30,11 @@ function menuyuHazirla(menu, kullanici, simdi) {
   const fiyat = kullanici.rol === 'ogrenci' ? ogrenci_fiyati : personel_fiyati;
 
   // Rezervasyon neden kapalı? Sınır ve mesajlar sp_rezervasyon_yap ile aynıdır:
-  // NOW() >= son saat ise süre dolmuştur.
+  // NOW() >= son saat ise süre dolmuştur. Kullanıcının zaten rezervasyonu varsa önce o söylenir.
   let pasifNeden = null;
-  if (simdi >= menu.rezervasyon_son) {
+  if (menu.rezervasyonum) {
+    pasifNeden = 'Bu menü için zaten rezervasyonunuz var.';
+  } else if (simdi >= menu.rezervasyon_son) {
     pasifNeden = 'Bu menü için rezervasyon süresi doldu.';
   } else if (menu.bos_yer <= 0) {
     pasifNeden = 'Yemekhane kapasitesi dolu.';
@@ -63,6 +65,7 @@ async function gunluk(req, res) {
   }
 
   const menuler = await menuVeri.menulerGetir({
+    kullaniciId: req.session.kullanici.id,
     baslangic: tarih,
     gunSayisi: 1,
     yemekhaneId: yemekhane.deger,
@@ -83,7 +86,11 @@ async function haftalik(req, res) {
     return res.status(400).json({ hata: 'Geçersiz tarih. Biçim: YYYY-AA-GG.' });
   }
 
-  const menuler = await menuVeri.menulerGetir({ baslangic, gunSayisi: 7 });
+  const menuler = await menuVeri.menulerGetir({
+    kullaniciId: req.session.kullanici.id,
+    baslangic,
+    gunSayisi: 7,
+  });
   res.json({
     baslangic,
     menuler: menuler.map((m) => menuyuHazirla(m, req.session.kullanici, zaman.simdi)),
