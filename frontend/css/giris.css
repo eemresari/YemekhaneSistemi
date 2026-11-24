@@ -1,0 +1,24 @@
+/* Giriş sayfasına özgü stiller. Renk ve yazı değişkenleri temel.css'ten gelir. */
+
+/* hidden özniteliği, .dugme gibi display veren sınıflara yenilmesin */
+[hidden] { display: none !important; }
+
+/* Telefonda tam genişlik, geniş ekranda ortada dar bir kart */
+.giris-kapsayici {
+  max-width: 420px;
+  padding-block: 2rem;
+}
+
+.kart {
+  background: var(--yuzey);
+  padding: 1.5rem var(--bosluk);
+  border-radius: var(--kose);
+  /* yemek fişi görünümü: alt kenarda yırtma çizgisi */
+  border-bottom: 2px dashed var(--cizgi);
+}
+
+.alt { color: var(--metin-soluk); }
+
+.alan { margin-bottom: 1rem; }
+
+.dugme.tam { width: 100%; }

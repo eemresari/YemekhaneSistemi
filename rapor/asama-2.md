@@ -202,3 +202,137 @@ kullanır. Okuma/yazma ayrımının doğru çalıştığı, geçici bir doğrula
 
 - `yazmaHavuzu` kaynağa (`server_id` 1) bağlanır ve yazmaya açıktır (`read_only` 0).
 - `okumaHavuzu` replikaya (`server_id` 2) bağlanır ve salt okunurdur (`read_only` 1).
+
+## 6. Giriş ve çıkış
+
+`bcryptjs` (bcrypt'in saf JavaScript sürümü, derleme gerektirmez, `$2a$` özetleriyle uyumlu) ve
+`express-session` kuruldu (`npm install bcryptjs express-session`). Oturum bu aşamada uygulamanın
+belleğinde tutulur; Aşama 3'te Redis'e taşınacaktır.
+
+Uygulama katmanlara ayrıldı:
+
+| Klasör | Görevi |
+|---|---|
+| `rotalar/` | Adresi Controller fonksiyonuna bağlar |
+| `ara/` | Ara katman: giriş yapmamış isteği 401 ile durdurur |
+| `controllers/` | İş akışı: şifre kontrolü, oturum açma/kapama. SQL içermez |
+| `veri/` | SQL yalnızca burada; okuma replikaya, yazma kaynağa |
+
+Uçlar: `POST /api/giris`, `POST /api/cikis`, `GET /api/ben` (yalnızca giriş yapmış kullanıcı).
+
+### Bir isteğin uygulama içindeki yolu: `POST /api/giris`
+
+**1. Route** · `index.js` tüm oturum rotalarını `/api` altına bağlar, `rotalar/oturum.js` adresi
+Controller'a yönlendirir:
+
+```js
+app.use('/api', oturumRotalari);                 // index.js
+router.post('/giris', oturum.giris);             // rotalar/oturum.js
+```
+
+**2. Controller** · `controllers/oturumController.js` gelen bilgiyi denetler, kullanıcıyı veri
+katmanından ister ve şifreyi bcrypt ile karşılaştırır:
+
+```js
+const kullanici = await kullaniciVeri.epostaIleBul(eposta);
+const sifreDogru = kullanici !== null && await bcrypt.compare(sifre, kullanici.sifre_hash);
+if (!sifreDogru) {
+  return res.status(401).json({ hata: 'E-posta ya da şifre hatalı.' });
+}
+```
+
+**3. Veri katmanı** · `veri/kullaniciVeri.js` SQL'i çalıştırır. Bu bir okuma işlemi olduğu için
+replikaya bağlı `okumaHavuzu` kullanılır:
+
+```js
+const [satirlar] = await okumaHavuzu.execute(
+  `SELECT id, ad, soyad, eposta, sifre_hash, rol, aktif
+     FROM kullanicilar
+    WHERE eposta = ?`,
+  [eposta]
+);
+```
+
+**4. Yanıt** · Şifre doğruysa oturum kimliği yenilenir (`req.session.regenerate`, session
+fixation saldırısına karşı), oturuma yalnızca `id`, `ad`, `soyad`, `rol` yazılır (şifre özeti
+yazılmaz) ve tarayıcıya imzalı oturum çerezi gönderilir:
+
+```
+Set-Cookie: yemekhane.sid=s%3A...; Path=/; HttpOnly; SameSite=Lax
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}
+```
+
+### Güvenlik kararları
+
+- Şifre açık hâliyle hiçbir yerde saklanmaz; `bcrypt.compare` girilen şifreyi kayıtlı özetteki
+  tuzla yeniden özetleyip karşılaştırır.
+- Yanlış e-posta ile yanlış şifre **aynı** mesajı döndürür; böylece hangi e-postaların sistemde
+  kayıtlı olduğu dışarıdan öğrenilemez.
+- Çerez `HttpOnly` (sayfadaki JavaScript okuyamaz) ve `SameSite=Lax`'tır (başka sitelerden gelen
+  isteklerde gönderilmez). Çerezde kullanıcı bilgisi yoktur, yalnızca imzalı oturum kimliği vardır.
+- Çerezi imzalayan anahtar koda yazılmaz; compose'daki `OTURUM_SIRRI` ortam değişkeninden okunur.
+
+### Doğrulama (Apache üzerinden)
+
+```
+> curl -s $U/ben
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+> curl -s -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"yanlis"}' $U/giris
+{"hata":"E-posta ya da şifre hatalı."}  -> HTTP 401
+> curl -s -c /tmp/cerez.txt -d '{"eposta":"mehmet.yildiz@ogr.kampus.edu.tr","sifre":"Yemek2026!"}' $U/giris
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}  -> HTTP 200
+> curl -s -b /tmp/cerez.txt $U/ben
+{"kullanici":{"id":7,"ad":"Mehmet","soyad":"Yıldız","rol":"ogrenci"}}  -> HTTP 200
+> curl -s -b /tmp/cerez.txt -X POST $U/cikis
+{"durum":"Çıkış yapıldı."}  -> HTTP 200
+> curl -s -b /tmp/cerez.txt $U/ben
+{"hata":"Bu işlem için giriş yapmalısınız."}  -> HTTP 401
+```
+
+(`U=http://localhost:8080/api`; JSON gönderen komutlarda `-H 'Content-Type: application/json'`
+de verildi.) Giriş yapılmadan korumalı uca erişilemiyor, doğru şifreyle oturum açılıyor ve çıkıştan
+sonra aynı çerez artık geçersiz.
+
+![Giriş ve çıkış API denemeleri](png/p2_giris_api.png)
+
+### Giriş ekranı (`/giris.html`)
+
+Arayüz `frontend/` klasöründe durur, Apache doğrudan sunar; API'ye JavaScript `fetch` ile
+bağlanır (React ya da başka çerçeve yok):
+
+| Dosya | Görevi |
+|---|---|
+| `frontend/giris.html` | E-posta ve şifre formu; giriş yapılmışsa karşılama ve "Çıkış yap" düğmesi |
+| `frontend/js/api.js` | Tüm ekranların ortak kullandığı `apiIstek()`: API'ye JSON isteği atar, sonucu `{ok, veri}` ya da `{ok:false, hata}` biçimine çevirir |
+| `frontend/js/giris.js` | Sayfanın davranışı |
+| `frontend/css/giris.css` | Giriş sayfasına özgü stil (renkler `temel.css`'ten) |
+
+Sayfa açılınca `GET /api/ben` çağrılır: oturum varsa karşılama gösterilir, yoksa form (sayfa
+yenilense de oturum çerezi sayesinde giriş korunur). Form gönderilince `POST /api/giris` çağrılır;
+hata olursa sunucunun Türkçe mesajı kırmızı kutuda olduğu gibi gösterilir.
+
+Arayüz tarafındaki kararlar:
+
+- **Arayüzde iş kuralı yoktur.** Şifrenin doğru olup olmadığına, kullanıcının aktif olup
+  olmadığına sunucu karar verir; arayüz yalnızca dönen mesajı gösterir.
+- Kullanıcının adı ve soyadı sayfaya `textContent` ile yazılır, `innerHTML` ile değil; bir ad içine
+  HTML ya da betik yazılsa bile çalışmaz (XSS'e karşı).
+- İstek sürerken "Giriş yap" düğmesi devre dışı kalır; çift tıklamayla iki istek gitmez.
+
+Boş form:
+
+![Giriş formu](png/p2_giris_bos.png)
+
+Hatalı giriş. Burada denenen e-posta (`byilmaz@gmail.com`) veritabanında kayıtlı değildir; kayıtlı
+bir e-postayla yanlış şifre girildiğinde de **aynı** mesaj çıkar:
+
+![Hatalı giriş](png/p2_giris_hata.png)
+
+Başarılı giriş (Ayşe Demir, öğrenci hesabı):
+
+![Başarılı giriş](png/p2_giris_basarili.png)
+
+Telefon genişliği (yaklaşık 400 px, tarayıcının cihaz simülasyonu): form tek sütunda, yatay
+kaydırma çıkmadan kullanılabiliyor:
+
+![Giriş formu, telefon genişliği](png/p2_giris_telefon.png)
