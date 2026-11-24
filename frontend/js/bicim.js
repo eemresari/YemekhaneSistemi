@@ -10,6 +10,18 @@ function saatBicimi(tarihSaat) {
   return tarihSaat.slice(11, 16);
 }
 
+// '2026-11-24 17:26:49' → '24.11.2026 17:26'
+function tarihSaatBicimi(tarihSaat) {
+  return new Date(tarihSaat.replace(' ', 'T')).toLocaleString('tr-TR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+// '2026-11-25' → '25 Kasım'
+function kisaGun(tarih) {
+  return new Date(`${tarih}T00:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+}
+
 // '2026-11-25' → 'Çarşamba, 25 Kasım'
 function gunBasligi(tarih) {
   const gun = new Date(`${tarih}T00:00:00`);

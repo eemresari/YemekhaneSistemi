@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bakiye · Yemekhane Otomasyonu</title>
+  <link rel="stylesheet" href="/css/temel.css">
+  <link rel="stylesheet" href="/css/sayfa.css">
+</head>
+<body>
+  <header id="gezinme" class="gezinme"></header>
+
+  <main class="kapsayici sayfa">
+    <h1>Bakiye</h1>
+
+    <p id="hata" class="bildirim bildirim-hata" role="alert" hidden></p>
+
+    <section class="bakiye-kutu" aria-live="polite">
+      <span class="bakiye-etiket">Güncel bakiye</span>
+      <strong id="bakiye-tutar" class="bakiye-tutar">…</strong>
+    </section>
+
+    <form id="yukle-formu" class="yukle-formu" novalidate>
+      <div class="alan-tutar">
+        <label for="tutar">Yüklenecek tutar (TL)</label>
+        <input id="tutar" name="tutar" type="number" step="0.01" inputmode="decimal">
+      </div>
+      <button id="yukle-dugme" class="dugme" type="submit">Yükle</button>
+      <p id="yukle-mesaj" class="kart-mesaj" role="status" hidden></p>
+    </form>
+
+    <h2>Hareket geçmişi</h2>
+    <p id="durum" class="durum" role="status">Yükleniyor…</p>
+    <div class="tablo-kaydir">
+      <table class="hareket-tablo" hidden>
+        <thead>
+          <tr><th>Tarih</th><th>Açıklama</th><th class="sag">Tutar</th></tr>
+        </thead>
+        <tbody id="hareketler"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/gezinme.js"></script>
+  <script src="/js/bicim.js"></script>
+  <script src="/js/bakiye.js"></script>
+</body>
+</html>

@@ -148,6 +148,44 @@
 .durum-kullanildi { background: var(--zemin);        color: var(--metin-soluk); }
 .durum-iptal      { background: var(--hata-zemin);   color: var(--hata); }
 
+/* ---------- Bakiye ---------- */
+.bakiye-kutu {
+  background: var(--yuzey);
+  border-radius: var(--kose);
+  border-left: 6px solid var(--vurgu);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+.bakiye-etiket { color: var(--metin-soluk); font-size: var(--boyut-kucuk); }
+.bakiye-tutar { font-size: 2rem; line-height: 1.2; }
+
+.yukle-formu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.alan-tutar { flex: 1 1 180px; max-width: 260px; }
+.yukle-formu .kart-mesaj { flex-basis: 100%; }
+
+.hareket-tablo {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--yuzey);
+  border-radius: var(--kose);
+  font-size: var(--boyut-kucuk);
+}
+.hareket-tablo th,
+.hareket-tablo td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--cizgi); text-align: left; }
+.hareket-tablo th { color: var(--metin-soluk); font-weight: 600; }
+.hareket-tablo .sag { text-align: right; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.tutar-arti { color: var(--basari); font-weight: 600; }
+.tutar-eksi { color: var(--hata); font-weight: 600; }
+
 /* İkincil düğme: iptal gibi geri alınması zor eylemler ana renkte durmasın */
 .dugme-ikincil {
   background: transparent;

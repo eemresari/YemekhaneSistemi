@@ -3,6 +3,7 @@ const session = require('express-session');
 const oturumRotalari = require('./rotalar/oturum');
 const menuRotalari = require('./rotalar/menu');
 const rezervasyonRotalari = require('./rotalar/rezervasyon');
+const bakiyeRotalari = require('./rotalar/bakiye');
 
 const app = express();
 const PORT = 8000;
@@ -36,6 +37,7 @@ app.get('/api/saglik', (req, res) => {
 app.use('/api', oturumRotalari);
 app.use('/api/menu', menuRotalari);
 app.use('/api/rezervasyonlar', rezervasyonRotalari);
+app.use('/api/bakiye', bakiyeRotalari);
 
 // Hata ara katmanı: Controller'lardan gelen bütün hatalar buraya düşer
 app.use((err, req, res, next) => {
