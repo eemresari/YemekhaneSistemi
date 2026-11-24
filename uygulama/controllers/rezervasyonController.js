@@ -16,16 +16,21 @@ async function liste(req, res) {
   res.json({ rezervasyonlar });
 }
 
-// POST /api/rezervasyonlar   gövde: { "menu_id": 52 }
+// POST /api/rezervasyonlar   gövde: { "menu_id": 52, "porsiyon": "yarim" }   (porsiyon yoksa 'tam')
 async function yap(req, res) {
   const menuId = req.body?.menu_id;
+  const porsiyon = req.body?.porsiyon ?? 'tam';
   if (!gecerliKimlik(menuId)) {
     return res.status(400).json({ hata: 'Geçersiz menü.' });
+  }
+  // Yalnızca biçim denetimi; "kahvaltıda yarım porsiyon yok" kuralı yordamda.
+  if (porsiyon !== 'tam' && porsiyon !== 'yarim') {
+    return res.status(400).json({ hata: 'Geçersiz porsiyon.' });
   }
 
   // Kullanıcı kimliği istekten değil oturumdan alınır: kimse başkası adına rezervasyon yapamaz.
   // Yordamın hatası (45000) burada yakalanmaz; index.js'teki hata ara katmanı 409'a çevirir.
-  const sonuc = await rezervasyonVeri.rezervasyonYap(req.session.kullanici.id, menuId);
+  const sonuc = await rezervasyonVeri.rezervasyonYap(req.session.kullanici.id, menuId, porsiyon);
 
   // Dönen bakiye yordamın transaction'ı içinde kaynakta hesaplanmıştır (replikadan okunmaz).
   res.status(201).json(sonuc);

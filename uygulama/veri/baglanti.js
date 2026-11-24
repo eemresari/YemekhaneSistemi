@@ -19,4 +19,21 @@ const yazmaHavuzu = mysql.createPool({ ...ortak, host: process.env.DB_YAZMA_HOST
 // Okuma işlemleri (SELECT, listeleme, rapor) buradan: replika sunucu
 const okumaHavuzu = mysql.createPool({ ...ortak, host: process.env.DB_OKUMA_HOST });
 
-module.exports = { yazmaHavuzu, okumaHavuzu };
+// Bir işi tek transaction içinde çalıştırır: hepsi başarılıysa COMMIT, herhangi biri hata
+// verirse ROLLBACK. Havuzdan tek bir bağlantı alınır, çünkü transaction bağlantıya aittir.
+async function transactionIcinde(is) {
+  const baglanti = await yazmaHavuzu.getConnection();
+  try {
+    await baglanti.beginTransaction();
+    const sonuc = await is(baglanti);
+    await baglanti.commit();
+    return sonuc;
+  } catch (err) {
+    await baglanti.rollback();
+    throw err;
+  } finally {
+    baglanti.release();     // bağlantı havuza geri döner
+  }
+}
+
+module.exports = { yazmaHavuzu, okumaHavuzu, transactionIcinde };

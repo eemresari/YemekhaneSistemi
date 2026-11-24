@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const kullaniciVeri = require('../veri/kullaniciVeri');
+const profilVeri = require('../veri/profilVeri');
 
 // POST /api/giris  { eposta, sifre }
 async function giris(req, res) {
@@ -27,11 +28,13 @@ async function giris(req, res) {
   await new Promise((tamam, hata) => req.session.regenerate((e) => (e ? hata(e) : tamam())));
 
   // Oturuma yalnızca gereken bilgiler yazılır; şifre özeti yazılmaz.
+  // alerjenler (Aşama 4): menüdeki uyarı için her istekte veritabanına sorulmasın diye oturumda.
   req.session.kullanici = {
     id: kullanici.id,
     ad: kullanici.ad,
     soyad: kullanici.soyad,
     rol: kullanici.rol,
+    alerjenler: await profilVeri.kullaniciAlerjenleri(kullanici.id),
   };
   res.json({ kullanici: req.session.kullanici });
 }

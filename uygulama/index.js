@@ -7,6 +7,7 @@ const rezervasyonRotalari = require('./rotalar/rezervasyon');
 const bakiyeRotalari = require('./rotalar/bakiye');
 const degerlendirmeRotalari = require('./rotalar/degerlendirme');
 const yonetimRotalari = require('./rotalar/yonetim');
+const profilRotalari = require('./rotalar/profil');
 const redis = require('./veri/redis');
 
 const app = express();
@@ -52,6 +53,7 @@ app.use('/api/rezervasyonlar', rezervasyonRotalari);
 app.use('/api/bakiye', bakiyeRotalari);
 app.use('/api/degerlendirmeler', degerlendirmeRotalari);
 app.use('/api/yonetim', yonetimRotalari);
+app.use('/api/profil', profilRotalari);
 
 const DB_BAGLANTI_HATALARI = new Set([
   'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST',

@@ -112,8 +112,10 @@ async function menuIcerikleriGetir(havuz, { baslangic, gunSayisi = 1, yemekhaneI
   const [satirlar] = await havuz.execute(
     `SELECT d.menu_id, d.tarih, d.yemekhane_id, d.yemekhane, d.ogun_id, d.ogun,
             d.rezervasyon_son, d.ogrenci_fiyati, d.personel_fiyati,
-            d.yemek_id, d.yemek, d.kategori, d.kalori, d.vejetaryen, d.alerjenler
+            d.yemek_id, d.yemek, d.kategori, d.kalori, d.vejetaryen, d.alerjenler, d.alerjen_idler,
+            o.yarim_porsiyon
        FROM v_menu_detay d
+       JOIN ogunler o ON o.id = d.ogun_id     -- Aşama 4: bu öğünde yarım porsiyon var mı?
       WHERE d.tarih >= ?
         AND d.tarih < DATE_ADD(?, INTERVAL ? DAY)
         AND (? IS NULL OR d.yemekhane_id = ?)
@@ -144,6 +146,7 @@ function menuleriGrupla(satirlar) {
         rezervasyon_son: s.rezervasyon_son,
         ogrenci_fiyati: s.ogrenci_fiyati,
         personel_fiyati: s.personel_fiyati,
+        yarim_porsiyon: Boolean(s.yarim_porsiyon),   // Aşama 4
         toplam_kalori: 0,
         yemekler: [],
       });
@@ -156,6 +159,7 @@ function menuleriGrupla(satirlar) {
       kalori: s.kalori,
       vejetaryen: Boolean(s.vejetaryen),
       alerjenler: s.alerjenler ? s.alerjenler.split(', ') : [],
+      alerjen_idler: s.alerjen_idler ? s.alerjen_idler.split(',').map(Number) : [],   // Aşama 4
     });
     menu.toplam_kalori += s.kalori;
   }

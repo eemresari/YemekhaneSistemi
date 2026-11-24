@@ -6,6 +6,21 @@ const { gecerliTarihMi, kimlikOku } = require('./denetim');
 
 // ---- İş kuralları ---------------------------------------------------------
 
+// Yarım porsiyon tam fiyatın %60'ı, kuruşa yuvarlanır (sp_rezervasyon_yap: ROUND(ucret * 0.60, 2)).
+// Kuruş üzerinden tamsayıyla hesaplanır: 40.00 * 0.6 gibi ondalık işlemler 23.999… çıkabilir.
+function yarimPorsiyonFiyati(fiyat) {
+  const kurus = Math.round(Number(fiyat) * 100);
+  return (Math.round((kurus * 6) / 10) / 100).toFixed(2);
+}
+
+// Yemeğin alerjenlerinden kullanıcının profilinde seçtikleri (Aşama 4). Boşsa uyarı yok.
+function alerjenUyarisi(yemek, kullanicininAlerjenleri) {
+  const { alerjen_idler: idler, ...gorunen } = yemek;
+  const uyari = idler.filter((id) => kullanicininAlerjenleri.has(id))
+    .map((id) => kullanicininAlerjenleri.get(id));
+  return { ...gorunen, uyari };
+}
+
 // Menüyü giriş yapan kullanıcı için hazırlar. Arayüz bu kararları vermez, yalnızca gösterir.
 function menuyuHazirla(menu, kullanici, simdi) {
   const { ogrenci_fiyati, personel_fiyati, ...gorunen } = menu;
@@ -25,7 +40,16 @@ function menuyuHazirla(menu, kullanici, simdi) {
     pasifNeden = 'Yemekhane kapasitesi dolu.';
   }
 
-  return { ...gorunen, fiyat, rezervasyon_acik: pasifNeden === null, pasif_neden: pasifNeden };
+  // Aşama 4: yarım porsiyon (kahvaltıda yok) ve alerjen uyarısı.
+  // Oturumda alerjen listesi olmayan eski oturumlar için boş liste.
+  const yarimFiyat = menu.yarim_porsiyon ? yarimPorsiyonFiyati(fiyat) : null;
+  const alerjenlerim = new Map((kullanici.alerjenler ?? []).map((a) => [a.id, a.ad]));
+  const yemekler = menu.yemekler.map((y) => alerjenUyarisi(y, alerjenlerim));
+
+  return {
+    ...gorunen, yemekler, fiyat, yarim_fiyat: yarimFiyat,
+    rezervasyon_acik: pasifNeden === null, pasif_neden: pasifNeden,
+  };
 }
 
 // ---- Uçlar ----------------------------------------------------------------

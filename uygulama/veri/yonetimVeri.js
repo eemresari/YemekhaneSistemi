@@ -1,4 +1,4 @@
-const { yazmaHavuzu, okumaHavuzu } = require('./baglanti');
+const { yazmaHavuzu, okumaHavuzu, transactionIcinde } = require('./baglanti');
 const menuOnbellek = require('./menuOnbellek');
 const { menuIcerikleriGetir, gunSonuZamani } = require('./menuVeri');
 
@@ -61,23 +61,6 @@ async function menuGetir(menuId) {
 }
 
 // ---- Yazmalar (kaynak, transaction) -----------------------------------------
-
-// Bir işi tek transaction içinde çalıştırır: hepsi başarılıysa COMMIT, herhangi biri hata
-// verirse ROLLBACK. Havuzdan tek bir bağlantı alınır, çünkü transaction bağlantıya aittir.
-async function transactionIcinde(is) {
-  const baglanti = await yazmaHavuzu.getConnection();
-  try {
-    await baglanti.beginTransaction();
-    const sonuc = await is(baglanti);
-    await baglanti.commit();
-    return sonuc;
-  } catch (err) {
-    await baglanti.rollback();
-    throw err;
-  } finally {
-    baglanti.release();     // bağlantı havuza geri döner
-  }
-}
 
 async function yemekleriEkle(baglanti, menuId, yemekIdleri) {
   const yerTutucular = yemekIdleri.map(() => '(?, ?)').join(', ');
