@@ -6,6 +6,7 @@ const rezervasyonRotalari = require('./rotalar/rezervasyon');
 const bakiyeRotalari = require('./rotalar/bakiye');
 const degerlendirmeRotalari = require('./rotalar/degerlendirme');
 const yonetimRotalari = require('./rotalar/yonetim');
+const redis = require('./veri/redis');
 
 const app = express();
 const PORT = 8000;
@@ -68,6 +69,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ hata: 'Beklenmeyen bir hata oluştu.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Uygulama ${PORT} portunda dinliyor`);
-});
+// Önce Redis'e bağlan, sonra istek kabul etmeye başla.
+// (compose, uygulamayı Redis "healthy" olduktan sonra başlatır.)
+async function basla() {
+  await redis.connect();
+  app.listen(PORT, () => {
+    console.log(`Uygulama ${PORT} portunda dinliyor`);
+  });
+}
+
+basla();
