@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const oturumRotalari = require('./rotalar/oturum');
 const menuRotalari = require('./rotalar/menu');
+const rezervasyonRotalari = require('./rotalar/rezervasyon');
 
 const app = express();
 const PORT = 8000;
@@ -34,9 +35,20 @@ app.get('/api/saglik', (req, res) => {
 
 app.use('/api', oturumRotalari);
 app.use('/api/menu', menuRotalari);
+app.use('/api/rezervasyonlar', rezervasyonRotalari);
 
-// Beklenmeyen hatalar: ayrıntı günlüğe yazılır, kullanıcıya genel mesaj gider
+// Hata ara katmanı: Controller'lardan gelen bütün hatalar buraya düşer
 app.use((err, req, res, next) => {
+  // Stored procedure bir iş kuralını reddetti (SIGNAL SQLSTATE '45000').
+  // Mesaj Türkçe ve kullanıcıya yöneliktir; olduğu gibi arayüze iletilir.
+  if (err.sqlState === '45000') {
+    return res.status(409).json({ hata: err.sqlMessage });
+  }
+  // Bozuk JSON gövdesi (express.json 400 hatası verir)
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ hata: 'İstek gövdesi geçerli JSON değil.' });
+  }
+  // Beklenmeyen hatalar: ayrıntı günlüğe yazılır, kullanıcıya genel mesaj gider
   console.error(err);
   res.status(500).json({ hata: 'Beklenmeyen bir hata oluştu.' });
 });
